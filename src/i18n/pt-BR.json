@@ -14,7 +14,7 @@
   "menu.expertNew": "Energia escondida e 3 vidas",
   "menu.expertLocked": "Conclua a fase {level} para liberar",
 
-  "expert.level": "Expert · Fase {level}",
+  "expert.mode": "Expert",
   "expert.activate": "Ativar",
   "expert.hint": "Mude alguma chave para tentar de novo",
   "expert.lives": "{count} de 3 lâmpadas de vida",

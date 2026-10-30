@@ -1,6 +1,6 @@
 import { Application } from 'pixi.js';
 import type { LevelDef, Point } from '../core/types';
-import { BOARD_H, BOARD_W } from '../layout/geometry';
+import { BOARD_H, BOARD_W, CONTENT_BOTTOM, CONTENT_TOP } from '../layout/geometry';
 import { loadTextures, type GameTextures } from './assets';
 import { Board, type BoardCallbacks, type BoardOptions } from './Board';
 
@@ -46,15 +46,24 @@ export class Stage {
     this.board = null;
   }
 
-  /** Escala a placa para caber na área visível, centralizada. */
+  /**
+   * Escala a placa para caber na área visível, centralizada. Em telas baixas, só a
+   * faixa jogável precisa caber: as margens decorativas podem ficar sob as barras.
+   */
   fit(): void {
     if (!this.board) return;
     this.app.resize();
     const w = this.host.clientWidth;
     const h = this.host.clientHeight - this.insets.top - this.insets.bottom;
-    const scale = Math.min(w / BOARD_W, h / BOARD_H);
+    const scale = Math.min(w / BOARD_W, h / (CONTENT_BOTTOM - CONTENT_TOP));
+    const boardH = BOARD_H * scale;
+    let y = this.insets.top + (h - boardH) / 2;
+    if (boardH > h) {
+      const centered = this.insets.top + h / 2 - ((CONTENT_TOP + CONTENT_BOTTOM) / 2) * scale;
+      y = Math.min(this.insets.top, Math.max(this.insets.top + h - boardH, centered));
+    }
     this.board.scale.set(scale);
-    this.board.position.set((w - BOARD_W * scale) / 2, this.insets.top + (h - BOARD_H * scale) / 2);
+    this.board.position.set((w - BOARD_W * scale) / 2, y);
     // O HUD em HTML usa a posição da placa para ficar alinhado a ela em telas largas.
     const root = document.documentElement.style;
     root.setProperty('--board-w', `${BOARD_W * scale}px`);

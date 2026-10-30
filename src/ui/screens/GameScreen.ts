@@ -31,7 +31,7 @@ export interface GameHooks {
 }
 
 const HUD_HEIGHT = 58;
-const ACTION_BAR_HEIGHT = 84;
+const ACTION_BAR_HEIGHT = 64;
 export const MAX_LIVES = 3;
 
 const BULB_SVG =
@@ -47,7 +47,6 @@ export class GameScreen implements Screen {
   private readonly expert: boolean;
   private readonly livesEl: HTMLElement | null = null;
   private readonly activateBtn: HTMLButtonElement | null = null;
-  private readonly actionHint: HTMLElement | null = null;
   private popover: GatePopover | null = null;
   private popoverFrame = 0;
   private winTimer = 0;
@@ -99,13 +98,7 @@ export class GameScreen implements Screen {
     if (this.expert) {
       this.livesEl = h('div', { class: 'lives', role: 'img', 'data-testid': 'lives' });
       for (let i = 0; i < MAX_LIVES; i++) this.livesEl.append(h('span', { class: 'life', html: BULB_SVG }));
-      this.activateBtn = h('button', {
-        class: 'btn primary big activate-btn',
-        'data-testid': 'activate',
-        html: `${ICONS.bolt} ${t('expert.activate')}`,
-        onclick: () => this.activate(),
-      });
-      this.actionHint = h('p', { class: 'action-hint', text: t('expert.hint'), hidden: true });
+      this.activateBtn = h('button', { class: 'btn primary big activate-btn', 'data-testid': 'activate', onclick: () => this.activate() });
       this.renderLives();
     }
     this.el = h(
@@ -115,13 +108,18 @@ export class GameScreen implements Screen {
         'header',
         { class: 'hud' },
         h('div', { class: 'hud-group' }, iconButton('restart', t('game.restart'), () => this.restart()), iconButton('book', t('game.glossary'), hooks.onGlossary)),
-        h('h1', { class: 'hud-title', 'data-testid': 'level-title', text: t(this.expert ? 'expert.level' : 'game.level', { level: level.id }) }),
+        h(
+          'h1',
+          { class: 'hud-title', 'data-testid': 'level-title' },
+          this.expert ? h('span', { class: 'hud-mode', text: t('expert.mode') }) : null,
+          t('game.level', { level: level.id }),
+        ),
         h('div', { class: 'hud-group' }, this.audioBtn, iconButton('home', t('game.menu'), hooks.onMenu)),
       ),
       this.audioPanel,
       this.expert || tip.startsWith('[') ? null : h('p', { class: 'hud-tip', text: tip }),
       this.livesEl,
-      this.expert ? h('div', { class: 'action-bar' }, this.actionHint, this.activateBtn) : null,
+      this.expert ? h('div', { class: 'action-bar' }, this.activateBtn) : null,
       this.victory,
     );
   }
@@ -147,6 +145,7 @@ export class GameScreen implements Screen {
       },
       { hidden: this.expert },
     );
+    this.updateActivate();
     window.addEventListener('keydown', this.onKey);
     window.addEventListener('pointerdown', this.onPointerDown, true);
   }
@@ -201,12 +200,18 @@ export class GameScreen implements Screen {
     this.livesEl.setAttribute('aria-label', t('expert.lives', { count: this.lives }));
   }
 
-  /** "Ativar" só vale com a placa apagada: depois de um erro, é preciso mudar alguma chave. */
+  /**
+   * "Ativar" só vale com a placa apagada: depois de um erro, é preciso mudar alguma
+   * chave, e o próprio botão diz isso (um aviso solto cobriria as chaves).
+   */
   private updateActivate(): void {
-    if (!this.activateBtn || !this.actionHint) return;
+    const btn = this.activateBtn;
+    if (!btn) return;
     const canActivate = !this.won && this.lives > 0 && !this.board.revealed;
-    this.activateBtn.disabled = !canActivate;
-    this.actionHint.hidden = canActivate || this.won || this.lives === 0 || this.board.animating;
+    const waiting = !canActivate && !this.won && this.lives > 0 && !this.board.animating;
+    btn.disabled = !canActivate;
+    btn.classList.toggle('waiting', waiting);
+    btn.innerHTML = waiting ? t('expert.hint') : `${ICONS.bolt} ${t('expert.activate')}`;
   }
 
   restart(): void {

@@ -136,7 +136,8 @@ test('modo Expert: liberado na fase 10, energia escondida, vidas e fim de jogo',
   await page.goto('/');
   await page.getByTestId('expert').click();
   await waitForBoard(page, 1);
-  await expect(page.getByTestId('level-title')).toHaveText('Expert · Fase 1');
+  await expect(page.getByTestId('level-title')).toHaveText('ExpertFase 1');
+  await expect(page.getByTestId('activate')).toHaveText(/Ativar/);
   const lit = page.locator('.life:not(.burnt)');
   await expect(lit).toHaveCount(3);
 

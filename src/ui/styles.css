@@ -350,7 +350,8 @@ h1, h2 { margin: 0; }
   background: linear-gradient(180deg, rgba(6, 22, 17, 0.95), rgba(6, 22, 17, 0.6));
   border-bottom: 1px solid var(--line);
 }
-.hud-title { font-size: 1.15rem; letter-spacing: 0.08em; text-transform: uppercase; }
+.hud-title { font-size: 1.15rem; letter-spacing: 0.08em; text-transform: uppercase; text-align: center; white-space: nowrap; line-height: 1.1; }
+.hud-mode { display: block; font-size: 0.62rem; letter-spacing: 0.24em; color: var(--warm); }
 .hud-group { display: flex; gap: 8px; }
 .icon-btn.active { background: rgba(143, 244, 255, 0.16); border-color: rgba(143, 244, 255, 0.45); }
 .audio-panel {
@@ -447,7 +448,7 @@ h1, h2 { margin: 0; }
 .lives {
   position: absolute;
   z-index: 5;
-  top: calc(var(--board-top, 58px) + 10px);
+  top: calc(max(var(--board-top, 0px), 58px + var(--safe-top)) + 10px);
   right: calc(max(0px, (100% - var(--board-w, 100%)) / 2) + 10px);
   display: flex;
   gap: 4px;
@@ -482,7 +483,7 @@ h1, h2 { margin: 0; }
   left: 50%;
   width: min(100%, var(--hud-w));
   transform: translateX(-50%);
-  height: calc(84px + var(--safe-bottom));
+  height: calc(64px + var(--safe-bottom));
   padding: 0 14px var(--safe-bottom);
   display: grid;
   align-content: center;
@@ -490,23 +491,19 @@ h1, h2 { margin: 0; }
   background: linear-gradient(0deg, rgba(6, 22, 17, 0.95), rgba(6, 22, 17, 0.6));
   border-top: 1px solid var(--line);
 }
-.activate-btn { width: min(320px, 100%); min-height: 52px; letter-spacing: 0.06em; text-transform: uppercase; }
+.activate-btn { width: min(320px, 100%); min-height: 48px; letter-spacing: 0.06em; text-transform: uppercase; }
+.activate-btn.waiting {
+  opacity: 1;
+  letter-spacing: 0;
+  text-transform: none;
+  font-size: 0.95rem;
+  font-weight: 600;
+  background: rgba(4, 20, 15, 0.9);
+  border-color: rgba(255, 215, 96, 0.45);
+  color: var(--warm);
+}
 .activate-btn:not(:disabled) { animation: ready-pulse 2.2s ease-in-out infinite; }
 @keyframes ready-pulse { 50% { box-shadow: 0 0 0 1px rgba(143, 244, 255, 0.7), 0 0 28px rgba(24, 216, 255, 0.55); } }
-.action-hint {
-  position: absolute;
-  bottom: calc(100% + 8px);
-  margin: 0;
-  padding: 6px 12px;
-  border-radius: 999px;
-  background: rgba(4, 20, 15, 0.9);
-  border: 1px solid rgba(255, 215, 96, 0.4);
-  font-size: 0.85rem;
-  color: var(--warm);
-  white-space: nowrap;
-  animation: pop-in 0.18s ease-out;
-}
-.action-hint[hidden] { display: none; }
 .victory-card.game-over { border-color: rgba(255, 120, 90, 0.55); box-shadow: 0 0 40px rgba(255, 90, 60, 0.2); }
 .victory-card.game-over h2 { color: #ff9a7a; }
 
