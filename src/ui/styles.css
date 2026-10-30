@@ -325,13 +325,22 @@ h1, h2 { margin: 0; }
 }
 
 /* ---------- Jogo ---------- */
-#ui > .game-screen { background: transparent; padding: 0; overflow: hidden; pointer-events: none; animation: none; }
+#ui > .game-screen {
+  /* Largura do HUD: a da placa, sem ficar estreita demais para os botões. */
+  --hud-w: max(var(--board-w, 100%), min(100%, 340px));
+  background: transparent;
+  padding: 0;
+  overflow: hidden;
+  pointer-events: none;
+  animation: none;
+}
 .game-screen > * { pointer-events: auto; }
 .hud {
   position: absolute;
   top: 0;
-  left: 0;
-  right: 0;
+  left: 50%;
+  width: min(100%, var(--hud-w));
+  transform: translateX(-50%);
   height: calc(58px + var(--safe-top));
   padding: var(--safe-top) 10px 0;
   display: flex;
@@ -348,7 +357,7 @@ h1, h2 { margin: 0; }
   position: absolute;
   z-index: 15;
   top: calc(64px + var(--safe-top));
-  right: 10px;
+  right: calc(max(0px, (100% - var(--hud-w)) / 2) + 10px);
   display: grid;
   gap: 8px;
   padding: 10px;
