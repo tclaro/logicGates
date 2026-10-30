@@ -24,6 +24,7 @@ export class AudioManager {
   private readonly howls = new Map<SoundName, Howl>();
   private music: Howl | null = null;
   private ctx: AudioContext | null = null;
+  private unlockAt = -Infinity;
   soundOn = true;
   private musicOn = true;
 
@@ -49,15 +50,41 @@ export class AudioManager {
     else this.music?.pause();
   }
 
-  /** Navegadores só liberam áudio depois de um gesto do usuário. */
+  /**
+   * Navegadores só liberam áudio dentro de um gesto do usuário. Num toque de tela,
+   * o gesto vale quando o dedo sai (pointerup/touchend/click), não no pointerdown.
+   * Os ouvintes continuam ativos até o áudio realmente começar a rodar e, se o
+   * sistema suspender o áudio (troca de app, tela bloqueada), voltam a funcionar.
+   */
+  installUnlock(target: Window = window): void {
+    const events = ['pointerup', 'touchend', 'click', 'keydown'] as const;
+    const onGesture = () => this.unlock();
+    for (const e of events) target.addEventListener(e, onGesture, { capture: true, passive: true });
+    target.document.addEventListener('visibilitychange', () => {
+      if (target.document.visibilityState === 'visible') this.unlock();
+    });
+  }
+
+  get running(): boolean {
+    return this.ctx?.state === 'running';
+  }
+
   unlock(): void {
+    this.unlockAt = performance.now();
     try {
       this.ctx ??= new AudioContext();
-      if (this.ctx.state === 'suspended') void this.ctx.resume();
+      if (this.ctx.state !== 'running') {
+        void this.ctx.resume().catch(() => {});
+        // Um som mudo tocado dentro do gesto completa o desbloqueio em alguns navegadores móveis.
+        const silent = this.ctx.createBufferSource();
+        silent.buffer = this.ctx.createBuffer(1, 1, 22050);
+        silent.connect(this.ctx.destination);
+        silent.start(0);
+      }
     } catch {
       this.ctx = null;
     }
-    if (Howler.ctx?.state === 'suspended') void Howler.ctx.resume();
+    if (Howler.ctx && Howler.ctx.state !== 'running') void Howler.ctx.resume().catch(() => {});
     if (this.musicOn) this.startMusic();
   }
 
@@ -77,7 +104,11 @@ export class AudioManager {
 
   private synth(name: SoundName): void {
     const ctx = this.ctx;
-    if (!ctx || ctx.state !== 'running') return;
+    if (!ctx) return;
+    // Logo após um gesto o contexto ainda está retomando: o som agendado toca assim que ele rodar.
+    // Fora disso, um contexto parado descarta o som (senão vários tocariam juntos depois).
+    const resuming = ctx.state === 'suspended' && performance.now() - this.unlockAt < 400;
+    if (ctx.state !== 'running' && !resuming) return;
     const now = ctx.currentTime;
     const tone = (freq: number, start: number, dur: number, type: OscillatorType, gain: number, endFreq?: number) => {
       const osc = ctx.createOscillator();

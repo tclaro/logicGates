@@ -22,6 +22,7 @@ if (import.meta.env.DEV) {
     __game: {
       app,
       stage,
+      audio,
       /** Ponto de tela (clientX/clientY) do centro de uma chave ou porta. */
       pointOf(id: string) {
         const p = stage.board?.anchorOf(id);

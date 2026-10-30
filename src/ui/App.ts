@@ -23,8 +23,7 @@ export class App {
   ) {
     audio.setSound(this.progress.sound);
     audio.setMusic(this.progress.music);
-    // O primeiro toque libera o áudio no navegador.
-    window.addEventListener('pointerdown', () => audio.unlock(), { once: true, capture: true });
+    audio.installUnlock();
     root.addEventListener('click', (e) => {
       if ((e.target as Element).closest('button')) audio.play('ui_click');
     });
