@@ -16,6 +16,11 @@ export function introGateFor(levelId: number): GateType | undefined {
   return (Object.keys(GATE_INTRO_LEVEL) as GateType[]).find((g) => GATE_INTRO_LEVEL[g] === levelId);
 }
 
+/** Primeira fase do capítulo desta fase: a da porta apresentada mais recentemente. */
+export function chapterStart(levelId: number): number {
+  return Math.max(1, ...Object.values(GATE_INTRO_LEVEL).filter((l) => l <= levelId));
+}
+
 /** Portas que já foram apresentadas até esta fase (inclusive). */
 export function allowedGatesFor(levelId: number): Set<GateType> {
   return new Set((Object.keys(GATE_INTRO_LEVEL) as GateType[]).filter((g) => GATE_INTRO_LEVEL[g] <= levelId));

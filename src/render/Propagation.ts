@@ -36,6 +36,8 @@ export class Propagation {
   private readonly gates = new Map<string, GateDef>();
   private readonly sourceValue = new Map<string, Bit>();
   private readonly pending = new Map<string, number>();
+  /** Nós que devem emitir o próximo valor mesmo sem mudança (energização a partir do escuro). */
+  private readonly forced = new Set<string>();
   private lamp: Bit = 0;
 
   onLampChange: (value: Bit) => void = () => {};
@@ -59,6 +61,7 @@ export class Propagation {
   reset(level: LevelDef, inputs: InputState): void {
     const values = evaluate(level, inputs);
     this.pending.clear();
+    this.forced.clear();
     for (const [id, v] of Object.entries(values)) this.sourceValue.set(id, v);
     for (const state of this.edges.values()) {
       state.settled = values[state.edge.from] ?? 0;
@@ -91,8 +94,33 @@ export class Propagation {
     this.emit(id, value);
   }
 
+  /** Apaga tudo (trilhas, portas e lâmpada em 0), sem animação. */
+  blackout(): void {
+    this.pending.clear();
+    this.forced.clear();
+    for (const id of this.sourceValue.keys()) this.sourceValue.set(id, 0);
+    for (const state of this.edges.values()) {
+      state.settled = 0;
+      state.waves = [];
+    }
+    this.lamp = 0;
+  }
+
+  /**
+   * Liga a energia a partir das chaves, com tudo apagado. Cada porta decide quando
+   * o sinal chega nela, mesmo que seja 0 (uma NOT com entrada 0 também acende).
+   */
+  energize(inputs: InputState): void {
+    for (const id of this.gates.keys()) this.forced.add(id);
+    for (const [id, value] of Object.entries(inputs)) {
+      this.forced.add(id);
+      this.emit(id, value);
+    }
+  }
+
   private emit(sourceId: string, value: Bit): void {
-    if (this.sourceValue.get(sourceId) === value) return;
+    const force = this.forced.delete(sourceId);
+    if (!force && this.sourceValue.get(sourceId) === value) return;
     this.sourceValue.set(sourceId, value);
     for (const state of this.outgoing.get(sourceId) ?? []) state.waves.push({ pos: 0, value });
   }
@@ -126,7 +154,7 @@ export class Propagation {
       this.pending.delete(gateId);
       const gate = this.gates.get(gateId)!;
       const out = applyGate(gate.type, this.gateInputs(gateId));
-      if (out !== this.sourceValue.get(gateId)) {
+      if (out !== this.sourceValue.get(gateId) || this.forced.has(gateId)) {
         this.emit(gateId, out);
         this.onGateChange(gateId, out);
       }

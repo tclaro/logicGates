@@ -1,7 +1,7 @@
 import { Howl, Howler } from 'howler';
 
-export type SoundName = 'switch' | 'energize' | 'lamp_on' | 'win' | 'ui_click';
-const SOUNDS: SoundName[] = ['switch', 'energize', 'lamp_on', 'win', 'ui_click'];
+export type SoundName = 'switch' | 'energize' | 'lamp_on' | 'win' | 'ui_click' | 'burn' | 'game_over';
+const SOUNDS: SoundName[] = ['switch', 'energize', 'lamp_on', 'win', 'ui_click', 'burn', 'game_over'];
 
 function audioUrl(name: string): string {
   return `${import.meta.env.BASE_URL}assets/audio/${name}.mp3`;
@@ -140,6 +140,13 @@ export class AudioManager {
         break;
       case 'ui_click':
         tone(620, 0, 0.03, 'sine', 0.05);
+        break;
+      case 'burn':
+        tone(2400, 0, 0.05, 'square', 0.05, 900);
+        tone(180, 0.04, 0.3, 'sawtooth', 0.06, 60);
+        break;
+      case 'game_over':
+        [392, 329.63, 261.63, 196].forEach((f, i) => tone(f, i * 0.18, 0.4, 'triangle', 0.08));
         break;
     }
   }

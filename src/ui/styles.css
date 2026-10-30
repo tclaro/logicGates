@@ -435,6 +435,81 @@ h1, h2 { margin: 0; }
 .victory-card p { margin: 6px 0 16px; color: var(--muted); }
 .victory-actions { display: grid; gap: 10px; }
 
+/* ---------- Modo Expert ---------- */
+.btn:disabled { opacity: 0.45; cursor: not-allowed; transform: none; box-shadow: none; }
+.expert-btn { justify-content: flex-start; text-align: left; border-color: rgba(255, 215, 96, 0.45); }
+.expert-btn:not(:disabled):hover { border-color: rgba(255, 215, 96, 0.8); background: rgba(255, 215, 96, 0.08); }
+.expert-icon { display: grid; color: var(--warm); }
+.expert-text { display: grid; line-height: 1.2; }
+.expert-text small { font-size: 0.8rem; font-weight: 500; color: var(--muted); }
+
+/* Vidas: moldura no canto superior direito da placa. */
+.lives {
+  position: absolute;
+  z-index: 5;
+  top: calc(var(--board-top, 58px) + 10px);
+  right: calc(max(0px, (100% - var(--board-w, 100%)) / 2) + 10px);
+  display: flex;
+  gap: 4px;
+  padding: 6px 8px;
+  border-radius: 12px;
+  background: rgba(3, 14, 10, 0.82);
+  border: 1px solid rgba(255, 215, 96, 0.35);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.4), 0 4px 14px rgba(0, 0, 0, 0.45);
+  pointer-events: none !important;
+}
+.life { display: grid; width: 22px; height: 30px; }
+.life svg { width: 100%; height: 100%; overflow: visible; }
+.life .glass { fill: var(--warm); stroke: #fff3c4; stroke-width: 1; filter: drop-shadow(0 0 4px rgba(255, 215, 96, 0.9)); }
+.life .filament { fill: none; stroke: #b35c00; stroke-width: 1.3; stroke-linecap: round; stroke-linejoin: round; }
+.life .base { fill: #b7b9b4; }
+.life.burnt .glass { fill: #2a3330; stroke: #56605b; filter: none; }
+.life.burnt .filament { stroke: #111; stroke-dasharray: 3 2; }
+.life.burnt .base { fill: #5d625e; }
+.life.burnt { animation: burn 0.7s ease-out; }
+@keyframes burn {
+  0% { transform: scale(1); filter: brightness(1); }
+  20% { transform: scale(1.35); filter: brightness(3) drop-shadow(0 0 10px #fff); }
+  45% { transform: scale(0.9) rotate(-8deg); }
+  70% { transform: rotate(6deg); }
+  100% { transform: none; }
+}
+
+/* Barra de baixo com o botão Ativar, na largura da placa. */
+.action-bar {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  width: min(100%, var(--hud-w));
+  transform: translateX(-50%);
+  height: calc(84px + var(--safe-bottom));
+  padding: 0 14px var(--safe-bottom);
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  background: linear-gradient(0deg, rgba(6, 22, 17, 0.95), rgba(6, 22, 17, 0.6));
+  border-top: 1px solid var(--line);
+}
+.activate-btn { width: min(320px, 100%); min-height: 52px; letter-spacing: 0.06em; text-transform: uppercase; }
+.activate-btn:not(:disabled) { animation: ready-pulse 2.2s ease-in-out infinite; }
+@keyframes ready-pulse { 50% { box-shadow: 0 0 0 1px rgba(143, 244, 255, 0.7), 0 0 28px rgba(24, 216, 255, 0.55); } }
+.action-hint {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  margin: 0;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: rgba(4, 20, 15, 0.9);
+  border: 1px solid rgba(255, 215, 96, 0.4);
+  font-size: 0.85rem;
+  color: var(--warm);
+  white-space: nowrap;
+  animation: pop-in 0.18s ease-out;
+}
+.action-hint[hidden] { display: none; }
+.victory-card.game-over { border-color: rgba(255, 120, 90, 0.55); box-shadow: 0 0 40px rgba(255, 90, 60, 0.2); }
+.victory-card.game-over h2 { color: #ff9a7a; }
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition: none !important; }
 }

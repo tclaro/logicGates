@@ -1,10 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { GATE_TYPES } from '../../src/core/logic';
 import { availableKeys, GATE_NOTATIONS, t } from '../../src/i18n/i18n';
-import { gatesInIntroOrder } from '../../src/levels/chapters';
+import { chapterStart, gatesInIntroOrder } from '../../src/levels/chapters';
 import { gateShape, gateSvg, toSvgPath } from '../../src/render/gateShapes';
 import {
   defaultProgress,
+  EXPERT_UNLOCK_LEVEL,
+  isExpertUnlocked,
+  recordExpert,
   highestUnlocked,
   isUnlocked,
   loadProgress,
@@ -68,6 +71,25 @@ describe('progresso', () => {
     p = markCompleted(p, 36);
     expect(highestUnlocked(p, 36)).toBe(36);
     expect(markCompleted(p, 1)).toBe(p);
+  });
+
+  it('modo Expert: libera ao concluir a fase 10 e guarda o recorde', () => {
+    let p = defaultProgress();
+    expect(p.expertBest).toBe(0);
+    for (let id = 1; id < EXPERT_UNLOCK_LEVEL; id++) p = markCompleted(p, id);
+    expect(isExpertUnlocked(p)).toBe(false);
+    p = markCompleted(p, EXPERT_UNLOCK_LEVEL);
+    expect(isExpertUnlocked(p)).toBe(true);
+    p = recordExpert(p, 5);
+    expect(recordExpert(p, 3)).toBe(p);
+    expect(recordExpert(p, 7).expertBest).toBe(7);
+    // Progresso salvo antes do modo Expert existir continua válido.
+    const old = JSON.stringify({ version: 1, completed: [1], seenIntros: [], sound: true, music: true });
+    expect(loadProgress({ getItem: () => old }).expertBest).toBe(0);
+  });
+
+  it('modo Expert: o fim de jogo volta ao início do capítulo', () => {
+    expect([1, 2, 3, 5, 6, 10, 11, 15, 16, 20, 21, 26, 27, 36].map(chapterStart)).toEqual([1, 2, 2, 2, 6, 6, 11, 11, 16, 16, 21, 21, 27, 27]);
   });
 });
 

@@ -46,7 +46,8 @@ O jogo foi pensado para:
 1. **A lâmpada começa apagada.** O objetivo de toda fase é acendê-la.
 2. **O aluno alterna as chaves** na parte de baixo da tela entre `0` e `1`. Nem todas começam desligadas: às vezes é preciso desligar uma chave para a luz acender.
 3. **A energia corre pelas trilhas** da placa. Cada porta só reage quando o sinal chega nela, e assim o aluno vê o caminho que a informação percorre.
-4. **Antes de cada porta nova**, uma tela apresenta o símbolo, uma analogia do dia a dia, uma mini demonstração interativa, a tabela verdade e as outras formas de escrever a porta.
+4. **Modo Expert:** depois de concluir a fase 10, o aluno pode jogar sem ver a energia. Ele monta as chaves, toca em **Ativar** e só então a energia corre. Cada erro queima uma das 3 lâmpadas de vida; perdendo as 3, volta ao início do capítulo. As fases seguem em sequência e as vidas se renovam a cada fase vencida.
+5. **Antes de cada porta nova**, uma tela apresenta o símbolo, uma analogia do dia a dia, uma mini demonstração interativa, a tabela verdade e as outras formas de escrever a porta.
 
 <div align="center">
 
@@ -85,7 +86,8 @@ A dificuldade é verificada automaticamente: cada fase passa por um validador qu
 - **Progresso salvo no próprio aparelho:** as fases são liberadas em sequência, e as já vencidas podem ser jogadas de novo.
 - **Glossário sempre à mão:** o aluno pode rever a explicação de qualquer porta que já apareceu.
 - **Som ajustável a qualquer momento:** durante a fase, o botão de alto-falante liga e desliga os efeitos e a música, e o botão da casinha volta ao menu principal.
-- **Atalhos de teclado** para usar com projetor: teclas `1` a `8` alternam as chaves, `R` reinicia a fase e `Esc` fecha a tabela verdade.
+- **Modo Expert para revisão:** sem ver a energia, o aluno precisa prever o resultado do circuito antes de ativá-lo. É um bom teste depois que as portas já foram aprendidas.
+- **Atalhos de teclado** para usar com projetor: teclas `1` a `8` alternam as chaves, `R` reinicia a fase, `Enter` ativa no modo Expert e `Esc` fecha a tabela verdade.
 - **Editor de fases:** quem rodar o projeto localmente pode criar fases novas com um editor visual (veja abaixo).
 
 ---
@@ -178,4 +180,6 @@ O jogo funciona com arte e sons provisórios gerados por código. Para personali
 | `lamp_on.mp3` | Lâmpada acende |
 | `win.mp3` | Fase concluída |
 | `ui_click.mp3` | Botões das telas |
+| `burn.mp3` | Modo Expert: uma lâmpada de vida queima |
+| `game_over.mp3` | Modo Expert: fim de jogo |
 | `music.mp3` | Música de fundo, em loop |

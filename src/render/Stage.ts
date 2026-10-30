@@ -55,8 +55,10 @@ export class Stage {
     const scale = Math.min(w / BOARD_W, h / BOARD_H);
     this.board.scale.set(scale);
     this.board.position.set((w - BOARD_W * scale) / 2, this.insets.top + (h - BOARD_H * scale) / 2);
-    // O HUD em HTML usa a largura da placa para ficar alinhado a ela em telas largas.
-    document.documentElement.style.setProperty('--board-w', `${BOARD_W * scale}px`);
+    // O HUD em HTML usa a posição da placa para ficar alinhado a ela em telas largas.
+    const root = document.documentElement.style;
+    root.setProperty('--board-w', `${BOARD_W * scale}px`);
+    root.setProperty('--board-top', `${this.board.y}px`);
   }
 
   /** Converte um ponto da placa para coordenadas da janela (clientX/clientY). */

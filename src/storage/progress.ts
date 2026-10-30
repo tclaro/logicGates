@@ -8,12 +8,17 @@ export interface Progress {
   seenIntros: GateType[];
   sound: boolean;
   music: boolean;
+  /** Modo Expert: maior fase vencida. */
+  expertBest: number;
 }
+
+/** Fase do modo normal que libera o modo Expert ao ser concluída. */
+export const EXPERT_UNLOCK_LEVEL = 10;
 
 const KEY = 'portas-logicas:progress';
 
 export function defaultProgress(): Progress {
-  return { version: 1, completed: [], seenIntros: [], sound: true, music: true };
+  return { version: 1, completed: [], seenIntros: [], sound: true, music: true, expertBest: 0 };
 }
 
 /** Lê o progresso salvo; qualquer problema (storage bloqueado, JSON inválido) volta ao padrão. */
@@ -29,6 +34,7 @@ export function loadProgress(storage: Pick<Storage, 'getItem'> | null = safeStor
       seenIntros: Array.isArray(data.seenIntros) ? data.seenIntros : [],
       sound: data.sound !== false,
       music: data.music !== false,
+      expertBest: Number.isInteger(data.expertBest) ? data.expertBest! : 0,
     };
   } catch {
     return defaultProgress();
@@ -69,4 +75,12 @@ export function markCompleted(progress: Progress, levelId: number): Progress {
 export function markIntroSeen(progress: Progress, gate: GateType): Progress {
   if (progress.seenIntros.includes(gate)) return progress;
   return { ...progress, seenIntros: [...progress.seenIntros, gate] };
+}
+
+export function isExpertUnlocked(progress: Progress): boolean {
+  return progress.completed.includes(EXPERT_UNLOCK_LEVEL);
+}
+
+export function recordExpert(progress: Progress, levelId: number): Progress {
+  return levelId > progress.expertBest ? { ...progress, expertBest: levelId } : progress;
 }

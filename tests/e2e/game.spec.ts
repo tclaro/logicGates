@@ -7,6 +7,7 @@ interface GameState {
   lampOn: boolean;
   animating: boolean;
   won: boolean;
+  lives: number | null;
 }
 
 declare global {
@@ -118,6 +119,64 @@ test('no jogo, o som se configura e o botão de menu volta ao menu principal', a
   await page.getByRole('button', { name: 'Menu principal' }).click();
   await expect(page.getByTestId('play')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Efeitos sonoros' })).toHaveAttribute('aria-pressed', 'true');
+});
+
+test('modo Expert: liberado na fase 10, energia escondida, vidas e fim de jogo', async ({ page: before }) => {
+  await seedProgress(before, [1, 2, 3, 4, 5, 6, 7, 8, 9], ['AND', 'OR', 'NOT']);
+  await before.goto('/');
+  await expect(before.getByTestId('expert')).toBeDisabled();
+  await expect(before.getByTestId('expert')).toContainText('Conclua a fase 10');
+
+  // Conclui a fase 10 e abre outra aba (o seedProgress regravaria o progresso ao recarregar).
+  await before.evaluate(() => {
+    const p = JSON.parse(localStorage.getItem('portas-logicas:progress')!);
+    localStorage.setItem('portas-logicas:progress', JSON.stringify({ ...p, completed: [...p.completed, 10] }));
+  });
+  const page = await before.context().newPage();
+  await page.goto('/');
+  await page.getByTestId('expert').click();
+  await waitForBoard(page, 1);
+  await expect(page.getByTestId('level-title')).toHaveText('Expert · Fase 1');
+  const lit = page.locator('.life:not(.burnt)');
+  await expect(lit).toHaveCount(3);
+
+  // Fase 1: AND(a, b) com a=1, b=0. Ligar b não acende nada até ativar.
+  await tap(page, 'b');
+  await page.waitForTimeout(800);
+  expect((await state(page))!.lampOn).toBe(false);
+  await tap(page, 'b');
+
+  const activate = page.getByTestId('activate');
+  for (let left = 2; left >= 0; left--) {
+    await activate.click();
+    await expect(lit).toHaveCount(left, { timeout: 5000 });
+    if (left > 0) {
+      // Depois do erro é preciso mudar alguma chave antes de ativar de novo.
+      await expect(activate).toBeDisabled();
+      await expect(page.getByText('Mude alguma chave')).toBeVisible();
+      await tap(page, 'a');
+      await expect(activate).toBeEnabled();
+    }
+  }
+  await expect(page.getByTestId('retry')).toHaveText(/Recomeçar da fase 1/);
+  await page.getByTestId('retry').click();
+  await waitForBoard(page, 1);
+  await expect(lit).toHaveCount(3);
+
+  await tap(page, 'b');
+  await page.keyboard.press('Enter');
+  await expect.poll(async () => (await state(page))!.won, { timeout: 5000 }).toBe(true);
+  await page.getByTestId('next').click();
+  await waitForBoard(page, 2);
+  await expect(lit).toHaveCount(3);
+  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('portas-logicas:progress')!));
+  expect(saved.expertBest).toBe(1);
+
+  // Sair encerra a partida; o menu mostra o recorde e recomeça da fase 1.
+  await page.getByRole('button', { name: 'Menu principal' }).click();
+  await expect(page.getByTestId('expert')).toContainText('Recorde: fase 1');
+  await page.getByTestId('expert').click();
+  await waitForBoard(page, 1);
 });
 
 test('tocar numa porta mostra a tabela verdade com a linha atual', async ({ page }) => {

@@ -86,4 +86,42 @@ describe('Propagation', () => {
       expect(lay.edges.some((e) => e.to === LAMP_ID)).toBe(true);
     }
   });
+
+  it('modo Expert: apagada, a placa não mostra energia; ativada, termina igual à lógica', () => {
+    for (const lvl of LEVELS) {
+      const lay = layoutLevel(lvl);
+      const p = new Propagation(lvl, lay.edges, initialInputs(lvl));
+      p.blackout();
+      expect(p.animating).toBe(false);
+      expect(p.lampValue).toBe(0);
+      for (const edge of lay.edges) expect(p.litRanges(edge.id)).toEqual([]);
+      for (const g of lvl.gates) expect(p.nodeValue(g.id)).toBe(0);
+
+      // Tanto a configuração inicial (lâmpada apagada) quanto a solução (acesa).
+      for (const inputs of [initialInputs(lvl), toInputState(lvl, solve(lvl).best!)]) {
+        p.blackout();
+        p.energize(inputs);
+        expect(p.animating).toBe(true);
+        settle(p);
+        const values = evaluate(lvl, inputs);
+        expect(p.lampValue, `fase ${lvl.id}`).toBe(values[lvl.output]);
+        for (const g of lvl.gates) expect(p.nodeValue(g.id), `fase ${lvl.id} porta ${g.id}`).toBe(values[g.id]);
+        for (const edge of lay.edges) {
+          expect(p.litRanges(edge.id), `fase ${lvl.id} aresta ${edge.id}`).toEqual(values[edge.from] ? [[0, edge.length]] : []);
+        }
+      }
+    }
+  });
+
+  it('modo Expert: uma NOT com entrada 0 só acende quando o sinal chega nela', () => {
+    const p = new Propagation(level, layout.edges, { a: 0, b: 0 }, { speed: 100 });
+    p.blackout();
+    p.energize({ a: 0, b: 0 });
+    expect(p.nodeValue('g1')).toBe(0);
+    const bEdge = layout.edges.find((e) => e.from === 'b')!;
+    p.update((bEdge.length / 100) * 0.5);
+    expect(p.nodeValue('g1')).toBe(0);
+    settle(p);
+    expect(p.nodeValue('g1')).toBe(1);
+  });
 });

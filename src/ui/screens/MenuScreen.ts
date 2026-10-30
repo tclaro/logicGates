@@ -9,7 +9,9 @@ export interface MenuActions {
   hasProgress: boolean;
   sound: boolean;
   music: boolean;
+  expert: { unlocked: boolean; best: number; unlockLevel: number };
   onPlay(): void;
+  onExpert(): void;
   onLevels(): void;
   onGlossary(): void;
   onSound(on: boolean): void;
@@ -39,9 +41,21 @@ export class MenuScreen implements Screen {
         { class: 'menu-buttons' },
         h('button', { class: 'btn primary big', 'data-testid': 'play', html: `${ICONS.play} ${playLabel}`, onclick: a.nextLevel === null ? a.onLevels : a.onPlay }),
         h('button', { class: 'btn big', html: `${ICONS.grid} ${t('menu.levels')}`, onclick: a.onLevels }),
+        expertButton(a),
         h('button', { class: 'btn big', html: `${ICONS.book} ${t('menu.glossary')}`, onclick: a.onGlossary }),
       ),
       h('div', { class: 'menu-toggles' }, toggleButton('sound', t('menu.sound'), a.sound, a.onSound), toggleButton('music', t('menu.music'), a.music, a.onMusic)),
     );
   }
+}
+
+function expertButton(a: MenuActions): HTMLButtonElement {
+  const { unlocked, best, unlockLevel } = a.expert;
+  const detail = !unlocked ? t('menu.expertLocked', { level: unlockLevel }) : best ? t('menu.expertBest', { level: best }) : t('menu.expertNew');
+  return h(
+    'button',
+    { class: 'btn big expert-btn', 'data-testid': 'expert', disabled: !unlocked, onclick: a.onExpert },
+    h('span', { class: 'expert-icon', html: unlocked ? ICONS.bolt : ICONS.lock }),
+    h('span', { class: 'expert-text' }, h('span', { text: t('menu.expert') }), h('small', { text: detail })),
+  );
 }

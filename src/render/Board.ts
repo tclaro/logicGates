@@ -19,11 +19,15 @@ export interface BoardCallbacks {
   onGateChange?(gateId: string, value: Bit): void;
   /** Editor: porta arrastada para uma nova posição horizontal. */
   onGateDrag?(gateId: string, x: number): void;
+  /** Modo Expert: a energia ligada por activate() terminou de correr. */
+  onActivated?(lampOn: boolean): void;
 }
 
 export interface BoardOptions {
   /** Permite arrastar portas na horizontal (editor). */
   editable?: boolean;
+  /** Modo Expert: a energia fica escondida até activate(). */
+  hidden?: boolean;
 }
 
 const boardTextureCache = new Map<number, Texture>();
@@ -50,6 +54,10 @@ export class Board extends Container {
   private dragging: { view: GateView; dx: number } | null = null;
   /** Quando true, as chaves não respondem (ex.: depois da vitória). */
   locked = false;
+  /** Modo Expert: a energia da última ativação está à mostra (até mexer numa chave). */
+  revealed = false;
+  private readonly hidden: boolean;
+  private energizing = false;
 
   constructor(
     readonly level: LevelDef,
@@ -60,6 +68,7 @@ export class Board extends Container {
     super();
     this.layout = layoutLevel(level);
     this.inputs = initialInputs(level);
+    this.hidden = options.hidden ?? false;
 
     const bg = textures.board
       ? new TilingSprite({ texture: textures.board, width: BOARD_W, height: BOARD_H })
@@ -77,6 +86,7 @@ export class Board extends Container {
       this.gateViews.get(id)?.setActive(v === 1);
       this.callbacks.onGateChange?.(id, v);
     };
+    if (this.hidden) this.prop.blackout();
 
     this.traces = new TraceLayer(this.layout, textures.glow);
     this.addChild(this.traces);
@@ -145,7 +155,8 @@ export class Board extends Container {
     const value: Bit = this.inputs[inputId] === 1 ? 0 : 1;
     this.inputs[inputId] = value;
     this.switchViews.get(inputId)!.setValue(value);
-    this.prop.setInput(inputId, value);
+    if (!this.hidden) this.prop.setInput(inputId, value);
+    else if (this.revealed) this.darken();
     this.dirty = true;
     this.callbacks.onToggle?.(inputId, value);
   }
@@ -158,6 +169,28 @@ export class Board extends Container {
     for (const [id, view] of this.gateViews) view.setActive(this.prop.nodeValue(id) === 1);
     this.lamp.setOn(this.prop.lampValue === 1);
     this.locked = false;
+    this.energizing = false;
+    this.dirty = true;
+    if (this.hidden) this.darken();
+  }
+
+  /** Modo Expert: liga a energia com as chaves atuais; onActivated avisa quando ela terminar de correr. */
+  activate(): void {
+    if (!this.hidden || this.locked || this.energizing) return;
+    this.darken();
+    this.prop.energize(this.inputs);
+    this.revealed = true;
+    this.energizing = true;
+    this.locked = true;
+    this.dirty = true;
+  }
+
+  /** Apaga trilhas, portas e lâmpada, mantendo as chaves como estão. */
+  private darken(): void {
+    this.prop.blackout();
+    for (const view of this.gateViews.values()) view.setActive(false);
+    this.lamp.setOn(false);
+    this.revealed = false;
     this.dirty = true;
   }
 
@@ -168,6 +201,11 @@ export class Board extends Container {
   update(dt: number): void {
     const wasAnimating = this.prop.animating;
     this.prop.update(dt);
+    if (this.energizing && !this.prop.animating) {
+      this.energizing = false;
+      this.locked = false;
+      this.callbacks.onActivated?.(this.lampOn);
+    }
     if (wasAnimating || this.dirty) {
       this.traces.redraw(this.prop);
       this.dirty = false;

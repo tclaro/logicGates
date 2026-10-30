@@ -34,7 +34,7 @@ if (import.meta.env.DEV) {
       state() {
         const board = stage.board;
         return board
-          ? { level: board.level.id, inputs: board.inputState, lampOn: board.lampOn, animating: board.animating, won: app.game?.won ?? false }
+          ? { level: board.level.id, inputs: board.inputState, lampOn: board.lampOn, animating: board.animating, won: app.game?.won ?? false, lives: app.game?.lives ?? null }
           : null;
       },
     },
