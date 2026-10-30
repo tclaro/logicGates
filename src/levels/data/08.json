@@ -1,0 +1,50 @@
+{
+  "id": 8,
+  "inputs": [
+    {
+      "id": "a",
+      "initial": 1
+    },
+    {
+      "id": "b",
+      "initial": 0
+    },
+    {
+      "id": "c",
+      "initial": 1
+    }
+  ],
+  "gates": [
+    {
+      "id": "g1",
+      "type": "NOT",
+      "in": [
+        "a"
+      ]
+    },
+    {
+      "id": "g2",
+      "type": "NOT",
+      "in": [
+        "c"
+      ]
+    },
+    {
+      "id": "g3",
+      "type": "OR",
+      "in": [
+        "b",
+        "g2"
+      ]
+    },
+    {
+      "id": "g4",
+      "type": "AND",
+      "in": [
+        "g1",
+        "g3"
+      ]
+    }
+  ],
+  "output": "g4"
+}

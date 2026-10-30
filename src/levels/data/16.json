@@ -1,0 +1,24 @@
+{
+  "id": 16,
+  "inputs": [
+    {
+      "id": "a",
+      "initial": 1
+    },
+    {
+      "id": "b",
+      "initial": 1
+    }
+  ],
+  "gates": [
+    {
+      "id": "g1",
+      "type": "NOR",
+      "in": [
+        "a",
+        "b"
+      ]
+    }
+  ],
+  "output": "g1"
+}

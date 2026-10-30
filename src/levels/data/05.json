@@ -1,0 +1,72 @@
+{
+  "id": 5,
+  "inputs": [
+    {
+      "id": "a",
+      "initial": 1
+    },
+    {
+      "id": "b",
+      "initial": 0
+    },
+    {
+      "id": "c",
+      "initial": 0
+    },
+    {
+      "id": "d",
+      "initial": 0
+    },
+    {
+      "id": "e",
+      "initial": 0
+    },
+    {
+      "id": "f",
+      "initial": 1
+    }
+  ],
+  "gates": [
+    {
+      "id": "g1",
+      "type": "AND",
+      "in": [
+        "a",
+        "b"
+      ]
+    },
+    {
+      "id": "g2",
+      "type": "OR",
+      "in": [
+        "g1",
+        "c"
+      ]
+    },
+    {
+      "id": "g3",
+      "type": "AND",
+      "in": [
+        "e",
+        "f"
+      ]
+    },
+    {
+      "id": "g4",
+      "type": "OR",
+      "in": [
+        "d",
+        "g3"
+      ]
+    },
+    {
+      "id": "g5",
+      "type": "AND",
+      "in": [
+        "g2",
+        "g4"
+      ]
+    }
+  ],
+  "output": "g5"
+}

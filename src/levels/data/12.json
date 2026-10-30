@@ -1,0 +1,36 @@
+{
+  "id": 12,
+  "inputs": [
+    {
+      "id": "a",
+      "initial": 1
+    },
+    {
+      "id": "b",
+      "initial": 1
+    },
+    {
+      "id": "c",
+      "initial": 0
+    }
+  ],
+  "gates": [
+    {
+      "id": "g1",
+      "type": "NAND",
+      "in": [
+        "a",
+        "b"
+      ]
+    },
+    {
+      "id": "g2",
+      "type": "AND",
+      "in": [
+        "g1",
+        "c"
+      ]
+    }
+  ],
+  "output": "g2"
+}

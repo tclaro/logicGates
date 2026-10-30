@@ -1,0 +1,36 @@
+{
+  "id": 3,
+  "inputs": [
+    {
+      "id": "a",
+      "initial": 0
+    },
+    {
+      "id": "b",
+      "initial": 0
+    },
+    {
+      "id": "c",
+      "initial": 1
+    }
+  ],
+  "gates": [
+    {
+      "id": "g1",
+      "type": "OR",
+      "in": [
+        "a",
+        "b"
+      ]
+    },
+    {
+      "id": "g2",
+      "type": "AND",
+      "in": [
+        "g1",
+        "c"
+      ]
+    }
+  ],
+  "output": "g2"
+}
