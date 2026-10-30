@@ -2,12 +2,16 @@ import type { Bit, LevelDef } from '../../core/types';
 import { t } from '../../i18n/i18n';
 import type { Board } from '../../render/Board';
 import type { Stage } from '../../render/Stage';
-import { h, iconButton, ICONS } from '../dom';
+import { h, iconButton, ICONS, toggleButton } from '../dom';
 import { GatePopover } from '../GatePopover';
 import type { Screen } from './Screen';
 
 export interface GameHooks {
   isLast: boolean;
+  sound: boolean;
+  music: boolean;
+  onSound(on: boolean): void;
+  onMusic(on: boolean): void;
   onMenu(): void;
   onGlossary(): void;
   onNext(): void;
@@ -29,13 +33,19 @@ export class GameScreen implements Screen {
   private popoverFrame = 0;
   private winTimer = 0;
   private readonly victory: HTMLElement;
+  private readonly audioBtn: HTMLButtonElement;
+  private readonly audioPanel: HTMLElement;
+  private sound: boolean;
+  private music: boolean;
   private readonly onKey = (e: KeyboardEvent) => this.handleKey(e);
   /**
    * Toque no HUD ou em outra tela fecha o balão; toques na placa não fecham,
    * para o aluno ver a linha da tabela mudar enquanto mexe nas chaves.
+   * O painel de som fecha com qualquer toque fora dele.
    */
   private readonly onPointerDown = (e: PointerEvent) => {
     const target = e.target as Node;
+    if (!this.audioPanel.hidden && !this.audioPanel.contains(target) && !this.audioBtn.contains(target)) this.setAudioPanel(false);
     if (this.popover && !this.popover.el.contains(target) && target !== this.stage.app.canvas) this.closePopover();
   };
 
@@ -46,17 +56,37 @@ export class GameScreen implements Screen {
   ) {
     const tipKey = `game.tip.${level.id}`;
     const tip = t(tipKey);
+    this.sound = hooks.sound;
+    this.music = hooks.music;
     this.victory = h('div', { class: 'victory hidden', role: 'dialog' });
+    this.audioBtn = iconButton('sound', t('game.audio'), () => this.setAudioPanel(this.audioPanel.hidden === true));
+    this.audioBtn.setAttribute('aria-expanded', 'false');
+    this.audioPanel = h(
+      'div',
+      { class: 'audio-panel', role: 'group', 'aria-label': t('game.audio'), hidden: true },
+      toggleButton('sound', t('menu.sound'), hooks.sound, (on) => {
+        this.sound = on;
+        this.updateAudioIcon();
+        hooks.onSound(on);
+      }),
+      toggleButton('music', t('menu.music'), hooks.music, (on) => {
+        this.music = on;
+        this.updateAudioIcon();
+        hooks.onMusic(on);
+      }),
+    );
+    this.updateAudioIcon();
     this.el = h(
       'section',
       { class: 'screen game-screen' },
       h(
         'header',
         { class: 'hud' },
-        iconButton('menu', t('game.menu'), hooks.onMenu),
+        h('div', { class: 'hud-group' }, iconButton('restart', t('game.restart'), () => this.restart()), iconButton('book', t('game.glossary'), hooks.onGlossary)),
         h('h1', { class: 'hud-title', 'data-testid': 'level-title', text: t('game.level', { level: level.id }) }),
-        h('div', { class: 'hud-right' }, iconButton('book', t('game.glossary'), hooks.onGlossary), iconButton('restart', t('game.restart'), () => this.restart())),
+        h('div', { class: 'hud-group' }, this.audioBtn, iconButton('home', t('game.menu'), hooks.onMenu)),
       ),
+      this.audioPanel,
       tip.startsWith('[') ? null : h('p', { class: 'hud-tip', text: tip }),
       this.victory,
     );
@@ -86,6 +116,17 @@ export class GameScreen implements Screen {
     window.clearTimeout(this.winTimer);
     this.closePopover();
     this.stage.clear();
+  }
+
+  private setAudioPanel(open: boolean): void {
+    this.audioPanel.hidden = !open;
+    this.audioBtn.setAttribute('aria-expanded', String(open));
+    this.audioBtn.classList.toggle('active', open);
+  }
+
+  /** Com efeitos e música desligados, o botão mostra o alto-falante riscado. */
+  private updateAudioIcon(): void {
+    this.audioBtn.innerHTML = this.sound || this.music ? ICONS.sound : ICONS.soundOff;
   }
 
   restart(): void {
@@ -160,7 +201,10 @@ export class GameScreen implements Screen {
 
   private handleKey(e: KeyboardEvent): void {
     if (e.target instanceof HTMLInputElement || e.ctrlKey || e.metaKey || e.altKey) return;
-    if (e.key === 'Escape') this.closePopover();
+    if (e.key === 'Escape') {
+      this.closePopover();
+      this.setAudioPanel(false);
+    }
     else if (e.key === 'r' || e.key === 'R') this.restart();
     else if (/^[1-9]$/.test(e.key)) {
       const input = this.board.layout.inputs.find((i) => i.index === Number(e.key) - 1);

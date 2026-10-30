@@ -1,6 +1,6 @@
 import { t } from '../../i18n/i18n';
 import { lampImageUrls } from '../../render/assets';
-import { h, ICONS } from '../dom';
+import { h, ICONS, toggleButton } from '../dom';
 import type { Screen } from './Screen';
 
 export interface MenuActions {
@@ -22,20 +22,6 @@ export class MenuScreen implements Screen {
   constructor(a: MenuActions) {
     const lamp = h('img', { class: 'menu-lamp', alt: '' });
     void lampImageUrls().then((urls) => (lamp.src = urls.on));
-    const toggle = (icon: 'sound' | 'music', label: string, value: boolean, cb: (on: boolean) => void) => {
-      const btn = h('button', {
-        class: `toggle ${value ? 'on' : ''}`,
-        'aria-pressed': String(value),
-        html: `${ICONS[icon]}<span>${label}</span>`,
-      });
-      btn.addEventListener('click', () => {
-        const on = !btn.classList.contains('on');
-        btn.classList.toggle('on', on);
-        btn.setAttribute('aria-pressed', String(on));
-        cb(on);
-      });
-      return btn;
-    };
     const playLabel = a.nextLevel === null ? t('menu.levels') : a.hasProgress ? t('menu.continue', { level: a.nextLevel }) : t('menu.play');
 
     this.el = h(
@@ -55,7 +41,7 @@ export class MenuScreen implements Screen {
         h('button', { class: 'btn big', html: `${ICONS.grid} ${t('menu.levels')}`, onclick: a.onLevels }),
         h('button', { class: 'btn big', html: `${ICONS.book} ${t('menu.glossary')}`, onclick: a.onGlossary }),
       ),
-      h('div', { class: 'menu-toggles' }, toggle('sound', t('menu.sound'), a.sound, a.onSound), toggle('music', t('menu.music'), a.music, a.onMusic)),
+      h('div', { class: 'menu-toggles' }, toggleButton('sound', t('menu.sound'), a.sound, a.onSound), toggleButton('music', t('menu.music'), a.music, a.onMusic)),
     );
   }
 }

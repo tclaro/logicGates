@@ -342,7 +342,26 @@ h1, h2 { margin: 0; }
   border-bottom: 1px solid var(--line);
 }
 .hud-title { font-size: 1.15rem; letter-spacing: 0.08em; text-transform: uppercase; }
-.hud-right { display: flex; gap: 8px; }
+.hud-group { display: flex; gap: 8px; }
+.icon-btn.active { background: rgba(143, 244, 255, 0.16); border-color: rgba(143, 244, 255, 0.45); }
+.audio-panel {
+  position: absolute;
+  z-index: 15;
+  top: calc(64px + var(--safe-top));
+  right: 10px;
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border-radius: var(--radius);
+  background: rgb(7, 26, 20);
+  backdrop-filter: blur(6px);
+  border: 1px solid rgba(143, 244, 255, 0.35);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.55);
+  animation: pop-in 0.18s ease-out;
+  transform-origin: top right;
+}
+.audio-panel[hidden] { display: none; }
+.audio-panel .toggle { justify-content: flex-start; }
 .hud-tip {
   position: absolute;
   top: calc(66px + var(--safe-top));

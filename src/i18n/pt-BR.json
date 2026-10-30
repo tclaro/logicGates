@@ -17,7 +17,8 @@
   "levels.newGate": "Nova porta: {gate}",
 
   "game.level": "Fase {level}",
-  "game.menu": "Menu",
+  "game.menu": "Menu principal",
+  "game.audio": "Som e música",
   "game.restart": "Reiniciar fase",
   "game.glossary": "Glossário",
   "game.tip.1": "Toque nas chaves para mudar entre 0 e 1 e acender a lâmpada.",

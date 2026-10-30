@@ -71,6 +71,16 @@ export class App {
     return LEVELS.find((l) => !done.has(l.id))?.id ?? null;
   }
 
+  private setSound(on: boolean): void {
+    audio.setSound(on);
+    this.setProgress({ ...this.progress, sound: on });
+  }
+
+  private setMusic(on: boolean): void {
+    audio.setMusic(on);
+    this.setProgress({ ...this.progress, music: on });
+  }
+
   showMenu(): void {
     this.show(
       new MenuScreen({
@@ -81,14 +91,8 @@ export class App {
         onPlay: () => this.startLevel(this.nextLevel() ?? 1),
         onLevels: () => this.showLevels(),
         onGlossary: () => this.openGlossary(),
-        onSound: (on) => {
-          audio.setSound(on);
-          this.setProgress({ ...this.progress, sound: on });
-        },
-        onMusic: (on) => {
-          audio.setMusic(on);
-          this.setProgress({ ...this.progress, music: on });
-        },
+        onSound: (on) => this.setSound(on),
+        onMusic: (on) => this.setMusic(on),
       }),
     );
   }
@@ -135,6 +139,10 @@ export class App {
     this.show(
       new GameScreen(this.stage, level, {
         isLast,
+        sound: this.progress.sound,
+        music: this.progress.music,
+        onSound: (on) => this.setSound(on),
+        onMusic: (on) => this.setMusic(on),
         onMenu: () => this.showMenu(),
         onGlossary: () => this.openGlossary(),
         onNext: () => this.startLevel(id + 1),

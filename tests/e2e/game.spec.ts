@@ -95,6 +95,31 @@ test('reiniciar volta as chaves ao estado inicial', async ({ page }) => {
   expect((await state(page))!.inputs).toEqual(initial);
 });
 
+test('no jogo, o som se configura e o botão de menu volta ao menu principal', async ({ page }) => {
+  await seedProgress(page, [1, 2], ['AND', 'OR']);
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Fases' }).click();
+  await page.locator('[data-level="3"]').click();
+  await waitForBoard(page, 3);
+
+  const audioBtn = page.getByRole('button', { name: 'Som e música' });
+  const panel = page.getByRole('group', { name: 'Som e música' });
+  await audioBtn.click();
+  await expect(panel).toBeVisible();
+  await expect(panel.getByRole('button', { name: 'Efeitos sonoros' })).toHaveAttribute('aria-pressed', 'false');
+  await panel.getByRole('button', { name: 'Efeitos sonoros' }).click();
+  await panel.getByRole('button', { name: 'Música' }).click();
+  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('portas-logicas:progress')!));
+  expect([saved.sound, saved.music]).toEqual([true, true]);
+  // Um toque na placa fecha o painel.
+  await tap(page, 'a');
+  await expect(panel).toBeHidden();
+
+  await page.getByRole('button', { name: 'Menu principal' }).click();
+  await expect(page.getByTestId('play')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Efeitos sonoros' })).toHaveAttribute('aria-pressed', 'true');
+});
+
 test('tocar numa porta mostra a tabela verdade com a linha atual', async ({ page }) => {
   await seedProgress(page, [1, 2], ['AND', 'OR']);
   await page.goto('/');

@@ -84,6 +84,7 @@ A dificuldade é verificada automaticamente: cada fase passa por um validador qu
 - **Sem cadastro, sem instalação:** basta abrir o link no navegador do computador, do tablet ou do celular.
 - **Progresso salvo no próprio aparelho:** as fases são liberadas em sequência, e as já vencidas podem ser jogadas de novo.
 - **Glossário sempre à mão:** o aluno pode rever a explicação de qualquer porta que já apareceu.
+- **Som ajustável a qualquer momento:** durante a fase, o botão de alto-falante liga e desliga os efeitos e a música, e o botão da casinha volta ao menu principal.
 - **Atalhos de teclado** para usar com projetor: teclas `1` a `8` alternam as chaves, `R` reinicia a fase e `Esc` fecha a tabela verdade.
 - **Editor de fases:** quem rodar o projeto localmente pode criar fases novas com um editor visual (veja abaixo).
 
