@@ -67,13 +67,13 @@ No modo normal, o aluno pode testar chaves até a lâmpada acender, vendo a ener
 
 | Aviso ao liberar o modo | Um palpite errado queima uma vida |
 |:---:|:---:|
-| <img src="docs/screenshots/expert-liberado.png" width="240" alt="Cartão de vitória da fase 10 com o aviso Modo Expert liberado"> | <img src="docs/screenshots/expert.png" width="240" alt="Fase 12 no modo Expert com uma das três lâmpadas de vida queimada"> |
+| <img src="docs/screenshots/expert-liberado.png" width="240" alt="Faixa diagonal Modo Expert liberado sobre a placa da fase 10"> | <img src="docs/screenshots/expert.png" width="240" alt="Fase 12 no modo Expert com uma das três lâmpadas de vida queimada"> |
 
 </div>
 
 ### Como liberar
 
-O modo Expert aparece no menu principal com um cadeado até o aluno **concluir a fase 10** do modo normal. Nesse ponto ele já conhece AND, OR e NOT. Ao vencer a fase 10 pela primeira vez, o cartão de vitória mostra um aviso animado de que o modo foi liberado.
+O modo Expert aparece no menu principal com um cadeado até o aluno **concluir a fase 10** do modo normal. Nesse ponto ele já conhece AND, OR e NOT. Ao vencer a fase 10 pela primeira vez, uma faixa amarela e preta atravessa a placa na diagonal anunciando "Modo Expert liberado!".
 
 ### Como se joga
 

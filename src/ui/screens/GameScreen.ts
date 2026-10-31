@@ -260,17 +260,21 @@ export class GameScreen implements Screen {
         ),
       ),
     );
-    if (this.expertUnlocked) this.victory.firstElementChild!.insertBefore(this.unlockBanner(), this.victory.querySelector('.victory-actions'));
+    if (this.expertUnlocked) this.victory.prepend(this.unlockRibbon());
     this.showCard();
   }
 
-  /** Aviso animado de que o modo Expert ficou disponível no menu. */
-  private unlockBanner(): HTMLElement {
+  /** Faixa diagonal sobre a placa anunciando que o modo Expert ficou disponível no menu. */
+  private unlockRibbon(): HTMLElement {
     return h(
       'div',
-      { class: 'unlock-banner', role: 'status', 'data-testid': 'expert-unlocked' },
-      h('span', { class: 'unlock-icon', html: ICONS.bolt }),
-      h('span', { class: 'unlock-text' }, h('strong', { text: t('expert.unlocked.title') }), h('small', { text: t('expert.unlocked.text') })),
+      { class: 'unlock-ribbon-wrap' },
+      h(
+        'div',
+        { class: 'unlock-ribbon', role: 'status', 'data-testid': 'expert-unlocked' },
+        h('strong', { html: `${ICONS.bolt} ${t('expert.unlocked.title')} ${ICONS.bolt}` }),
+        h('small', { text: t('expert.unlocked.text') }),
+      ),
     );
   }
 
