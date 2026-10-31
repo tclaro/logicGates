@@ -94,6 +94,22 @@ test('reiniciar volta as chaves ao estado inicial', async ({ page }) => {
   expect((await state(page))!.inputs).not.toEqual(initial);
   await page.keyboard.press('r');
   expect((await state(page))!.inputs).toEqual(initial);
+
+  // Com o cartão de vitória aberto, os botões do topo continuam clicáveis.
+  await solve(page, 3);
+  await expect(page.getByTestId('next')).toBeVisible();
+  await page.getByRole('button', { name: 'Reiniciar fase' }).click();
+  await expect(page.getByTestId('next')).toBeHidden();
+  expect((await state(page))!.inputs).toEqual(initial);
+  await solve(page, 3);
+  await expect(page.getByTestId('next')).toBeVisible();
+  await page.getByRole('button', { name: 'Som e música' }).click();
+  await expect(page.getByRole('group', { name: 'Som e música' })).toBeVisible();
+  await page.getByRole('button', { name: 'Glossário' }).click();
+  await expect(page.locator('.glossary-grid')).toBeVisible();
+  await page.getByRole('button', { name: 'Voltar' }).click();
+  await page.getByRole('button', { name: 'Menu principal' }).click();
+  await expect(page.getByTestId('play')).toBeVisible();
 });
 
 test('no jogo, o som se configura e o botão de menu volta ao menu principal', async ({ page }) => {
