@@ -10,6 +10,7 @@ Um jogo de navegador gratuito que ensina portas lógicas para quem está começa
 
 ![Deploy](https://github.com/tclaro/logicGates/actions/workflows/deploy.yml/badge.svg)
 ![Fases](https://img.shields.io/badge/fases-36-18d8ff)
+![Modos](https://img.shields.io/badge/modos-normal%20%C2%B7%20Expert-ff9a3c)
 ![Portas](https://img.shields.io/badge/portas-AND%20%C2%B7%20OR%20%C2%B7%20NOT%20%C2%B7%20NAND%20%C2%B7%20NOR%20%C2%B7%20XOR%20%C2%B7%20XNOR-ffd760)
 ![Idioma](https://img.shields.io/badge/idioma-pt--BR-0c4031)
 
@@ -29,7 +30,8 @@ O jogo foi pensado para:
 
 - **Iniciantes de qualquer idade:** de crianças curiosas a estudantes do primeiro semestre de computação.
 - **Aula e estudo individual:** o professor pode projetar o jogo em sala; o aluno pode jogar sozinho no celular.
-- **Aprender sem medo de errar:** não há pontuação, tempo nem vidas. Errar é só mudar uma chave de volta.
+- **Aprender sem medo de errar:** no modo normal não há pontuação, tempo nem vidas. Errar é só mudar uma chave de volta.
+- **Desafiar quem já aprendeu:** o [modo Expert](#-modo-expert) esconde a energia e cobra que o aluno preveja o resultado antes de testar.
 
 ### O que o aluno aprende
 
@@ -40,14 +42,14 @@ O jogo foi pensado para:
 | Raciocinar sobre circuitos com várias portas encadeadas | As fases crescem de 1 para 11 portas, com até 5 níveis de profundidade |
 | Ler as notações usadas em matemática e programação | Cada porta é apresentada também como `A ∧ B`, `A && B`, `¬A`, `A ⊕ B`, `A ^ B`… |
 | Pensar "de trás para frente", partindo do resultado desejado | Para acender a lâmpada, é preciso descobrir o que cada porta precisa receber |
+| Simular um circuito de cabeça, sem tentativa e erro | No modo Expert a energia fica escondida e cada palpite errado custa uma vida |
 
 ## 🧭 Como funciona
 
 1. **A lâmpada começa apagada.** O objetivo de toda fase é acendê-la.
 2. **O aluno alterna as chaves** na parte de baixo da tela entre `0` e `1`. Nem todas começam desligadas: às vezes é preciso desligar uma chave para a luz acender.
 3. **A energia corre pelas trilhas** da placa. Cada porta só reage quando o sinal chega nela, e assim o aluno vê o caminho que a informação percorre.
-4. **Modo Expert:** depois de concluir a fase 10, o aluno pode jogar sem ver a energia. Ele monta as chaves, toca em **Ativar** e só então a energia corre. Cada erro queima uma das 3 lâmpadas de vida; perdendo as 3, volta ao início do capítulo. As fases seguem em sequência e as vidas se renovam a cada fase vencida.
-5. **Antes de cada porta nova**, uma tela apresenta o símbolo, uma analogia do dia a dia, uma mini demonstração interativa, a tabela verdade e as outras formas de escrever a porta.
+4. **Antes de cada porta nova**, uma tela apresenta o símbolo, uma analogia do dia a dia, uma mini demonstração interativa, a tabela verdade e as outras formas de escrever a porta.
 
 <div align="center">
 
@@ -56,6 +58,41 @@ O jogo foi pensado para:
 | <img src="docs/screenshots/intro.png" width="240" alt="Tela de introdução da porta AND"> | <img src="docs/screenshots/tabela-verdade.png" width="240" alt="Balão com a tabela verdade da porta NAND"> | <img src="docs/screenshots/vitoria.png" width="240" alt="Lâmpada acesa e tela de vitória"> |
 
 </div>
+
+## ⚡ Modo Expert
+
+No modo normal, o aluno pode testar chaves até a lâmpada acender, vendo a energia em cada trilha. O modo Expert tira essa muleta: **a energia fica escondida e o aluno precisa simular o circuito de cabeça** antes de testar. É a forma de verificar se as portas foram realmente entendidas, e não só descobertas por tentativa.
+
+<div align="center">
+
+| Aviso ao liberar o modo | Um palpite errado queima uma vida |
+|:---:|:---:|
+| <img src="docs/screenshots/expert-liberado.png" width="240" alt="Cartão de vitória da fase 10 com o aviso Modo Expert liberado"> | <img src="docs/screenshots/expert.png" width="240" alt="Fase 12 no modo Expert com uma das três lâmpadas de vida queimada"> |
+
+</div>
+
+### Como liberar
+
+O modo Expert aparece no menu principal com um cadeado até o aluno **concluir a fase 10** do modo normal. Nesse ponto ele já conhece AND, OR e NOT. Ao vencer a fase 10 pela primeira vez, o cartão de vitória mostra um aviso animado de que o modo foi liberado.
+
+### Como se joga
+
+1. **As trilhas ficam apagadas.** Mexer nas chaves não mostra nada: o aluno vê o desenho do circuito, mas não os valores.
+2. **O aluno monta as chaves e toca em Ativar** (ou aperta `Enter`). Só então a energia corre pela placa, porta por porta, como no modo normal.
+3. **Se a lâmpada acender**, a fase está vencida e o aluno segue para a próxima.
+4. **Se não acender**, uma das **3 lâmpadas de vida** (no canto superior direito da placa) queima. A energia continua visível, para o aluno entender onde errou. Para tentar de novo, ele muda alguma chave, o que apaga a placa outra vez, e toca em Ativar.
+5. **Se as 3 lâmpadas queimarem**, a partida acaba e o aluno recomeça do **início do capítulo** atual, ou seja, da fase em que a última porta nova foi apresentada (1, 2, 6, 11, 16, 21 ou 27).
+
+### Regras
+
+| Regra | Por quê |
+|---|---|
+| Cada partida começa na fase 1 e as fases seguem em sequência, sem escolha | O modo é uma prova do percurso inteiro |
+| As 3 vidas se renovam a cada fase vencida | Um erro numa fase não pesa sobre as seguintes |
+| Sair para o menu encerra a partida | A próxima começa de novo na fase 1 |
+| Tocar numa porta mostra a tabela verdade **sem** destacar a linha atual | Destacar a linha revelaria os valores que o modo esconde |
+| A apresentação de uma porta só aparece se o aluno ainda não a viu | Quem chegou até aqui já passou pelas apresentações no modo normal |
+| O menu mostra o recorde: a fase mais alta vencida no modo Expert | Dá ao aluno uma meta para superar |
 
 ## 🪜 Progressão das fases
 
@@ -86,7 +123,7 @@ A dificuldade é verificada automaticamente: cada fase passa por um validador qu
 - **Progresso salvo no próprio aparelho:** as fases são liberadas em sequência, e as já vencidas podem ser jogadas de novo.
 - **Glossário sempre à mão:** o aluno pode rever a explicação de qualquer porta que já apareceu.
 - **Som ajustável a qualquer momento:** durante a fase, o botão de alto-falante liga e desliga os efeitos e a música, e o botão da casinha volta ao menu principal.
-- **Modo Expert para revisão:** sem ver a energia, o aluno precisa prever o resultado do circuito antes de ativá-lo. É um bom teste depois que as portas já foram aprendidas.
+- **Modo Expert para revisão:** sem ver a energia, o aluno precisa prever o resultado do circuito antes de ativá-lo. Funciona bem como avaliação ou desafio em sala: o recorde de cada aluno aparece no menu. Veja [Modo Expert](#-modo-expert).
 - **Atalhos de teclado** para usar com projetor: teclas `1` a `8` alternam as chaves, `R` reinicia a fase, `Enter` ativa no modo Expert e `Esc` fecha a tabela verdade.
 - **Editor de fases:** quem rodar o projeto localmente pode criar fases novas com um editor visual (veja abaixo).
 
@@ -126,7 +163,8 @@ npm run build
 | `src/levels/chapters.ts` | Em que fase cada porta é apresentada |
 | `src/layout` | Layout automático em camadas e roteamento das trilhas em 0°, 45° e 90° |
 | `src/render` | A placa: trilhas, brilho, portas, lâmpada, chaves e a propagação animada |
-| `src/ui` | Menu, seleção de fases, introduções, glossário, HUD e tabela verdade |
+| `src/ui` | Menu, seleção de fases, introduções, glossário, HUD, tabela verdade e modo Expert (vidas e botão Ativar) |
+| `src/storage/progress.ts` | Progresso salvo no `localStorage`: fases concluídas, portas vistas, som e recorde do Expert |
 | `src/i18n/pt-BR.json` | Todos os textos do jogo, prontos para tradução |
 | `editor/` | Editor visual de fases |
 
@@ -162,7 +200,7 @@ LEVEL_REPORT=1 npx vitest run tests/unit/levels.test.ts --silent=false
 
 ### Arte e sons
 
-O jogo funciona com arte e sons provisórios gerados por código. Para personalizar, coloque arquivos com estes nomes nas pastas indicadas:
+Os sons e a música já estão incluídos; a arte da placa ainda é desenhada por código. Para personalizar, coloque arquivos com estes nomes nas pastas indicadas. Arquivos ausentes são substituídos por versões geradas por código, sem erro.
 
 **`public/assets/sprites/`** (PNG com fundo transparente)
 
@@ -177,7 +215,7 @@ O jogo funciona com arte e sons provisórios gerados por código. Para personali
 | Arquivo | Quando toca |
 |---|---|
 | `switch_on.mp3` / `switch_off.mp3` | Chave ligada / desligada |
-| `energize.mp3` | Modo Expert: botão Ativar |
+| `energize.mp3` | Modo Expert: botão Ativar (ainda sintetizado) |
 | `lamp_on.mp3` | Lâmpada acende |
 | `win.mp3` | Fase concluída |
 | `ui_click.mp3` | Botões das telas |
