@@ -127,11 +127,17 @@ test('modo Expert: liberado na fase 10, energia escondida, vidas e fim de jogo',
   await expect(before.getByTestId('expert')).toBeDisabled();
   await expect(before.getByTestId('expert')).toContainText('Conclua a fase 10');
 
-  // Conclui a fase 10 e abre outra aba (o seedProgress regravaria o progresso ao recarregar).
-  await before.evaluate(() => {
-    const p = JSON.parse(localStorage.getItem('portas-logicas:progress')!);
-    localStorage.setItem('portas-logicas:progress', JSON.stringify({ ...p, completed: [...p.completed, 10] }));
-  });
+  // Vencer a fase 10 mostra o aviso de liberação; rejogá-la não mostra de novo.
+  await before.getByTestId('play').click();
+  await waitForBoard(before, 10);
+  await solve(before, 10);
+  await expect(before.getByTestId('expert-unlocked')).toContainText('Modo Expert liberado!');
+  await before.getByRole('button', { name: 'Jogar de novo' }).click();
+  await solve(before, 10);
+  await expect(before.getByTestId('next')).toBeVisible();
+  await expect(before.getByTestId('expert-unlocked')).toHaveCount(0);
+
+  // Outra aba, porque o seedProgress regravaria o progresso ao recarregar.
   const page = await before.context().newPage();
   await page.goto('/');
   await page.getByTestId('expert').click();

@@ -20,7 +20,8 @@ export interface GameHooks {
   onGlossary(): void;
   onNext(): void;
   onLevels(): void;
-  onWin(): void;
+  /** Devolve true quando esta vitória liberou o modo Expert. */
+  onWin(): boolean | void;
   onToggle(value: Bit): void;
   onLampOn(): void;
   onRestart(): void;
@@ -50,6 +51,7 @@ export class GameScreen implements Screen {
   private popover: GatePopover | null = null;
   private popoverFrame = 0;
   private winTimer = 0;
+  private expertUnlocked = false;
   private readonly victory: HTMLElement;
   private readonly audioBtn: HTMLButtonElement;
   private readonly audioPanel: HTMLElement;
@@ -232,7 +234,7 @@ export class GameScreen implements Screen {
     this.closePopover();
     this.updateActivate();
     this.hooks.onLampOn();
-    this.hooks.onWin();
+    this.expertUnlocked = this.hooks.onWin() === true;
     this.winTimer = window.setTimeout(() => this.showVictory(), 1100);
   }
 
@@ -258,7 +260,18 @@ export class GameScreen implements Screen {
         ),
       ),
     );
+    if (this.expertUnlocked) this.victory.firstElementChild!.insertBefore(this.unlockBanner(), this.victory.querySelector('.victory-actions'));
     this.showCard();
+  }
+
+  /** Aviso animado de que o modo Expert ficou disponível no menu. */
+  private unlockBanner(): HTMLElement {
+    return h(
+      'div',
+      { class: 'unlock-banner', role: 'status', 'data-testid': 'expert-unlocked' },
+      h('span', { class: 'unlock-icon', html: ICONS.bolt }),
+      h('span', { class: 'unlock-text' }, h('strong', { text: t('expert.unlocked.title') }), h('small', { text: t('expert.unlocked.text') })),
+    );
   }
 
   private showExpertVictory(): void {

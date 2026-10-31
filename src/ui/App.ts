@@ -158,8 +158,10 @@ export class App {
       onNext: () => this.startLevel(id + 1),
       onLevels: () => this.showLevels(),
       onWin: () => {
+        const wasUnlocked = isExpertUnlocked(this.progress);
         this.setProgress(markCompleted(this.progress, id));
         audio.play('win');
+        return !wasUnlocked && isExpertUnlocked(this.progress);
       },
       onLampOn: () => audio.play('lamp_on'),
       onToggle: (value) => audio.play(value ? 'energize' : 'switch'),
