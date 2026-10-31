@@ -30,7 +30,7 @@ export class AudioManager {
   private ctx: AudioContext | null = null;
   private unlockAt = -Infinity;
   soundOn = true;
-  private musicOn = true;
+  private musicOn = false;
 
   async load(): Promise<void> {
     await Promise.all(

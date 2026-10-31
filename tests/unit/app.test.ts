@@ -45,6 +45,16 @@ describe('progresso', () => {
     expect(loadProgress(store)).toEqual(p);
   });
 
+  it('a música começa desligada, mas respeita quem já a ligou', () => {
+    const store = memory();
+    expect(defaultProgress().music).toBe(false);
+    expect(loadProgress(store).music).toBe(false);
+    store.setItem('portas-logicas:progress', JSON.stringify({ version: 1, completed: [], seenIntros: [] }));
+    expect(loadProgress(store).music).toBe(false);
+    saveProgress({ ...defaultProgress(), music: true }, store);
+    expect(loadProgress(store).music).toBe(true);
+  });
+
   it('volta ao padrão com storage quebrado ou dados inválidos', () => {
     const broken = {
       getItem: () => {

@@ -18,7 +18,7 @@ export const EXPERT_UNLOCK_LEVEL = 10;
 const KEY = 'portas-logicas:progress';
 
 export function defaultProgress(): Progress {
-  return { version: 1, completed: [], seenIntros: [], sound: true, music: true, expertBest: 0 };
+  return { version: 1, completed: [], seenIntros: [], sound: true, music: false, expertBest: 0 };
 }
 
 /** Lê o progresso salvo; qualquer problema (storage bloqueado, JSON inválido) volta ao padrão. */
@@ -33,7 +33,7 @@ export function loadProgress(storage: Pick<Storage, 'getItem'> | null = safeStor
       completed: Array.isArray(data.completed) ? data.completed.filter((n) => Number.isInteger(n)) : [],
       seenIntros: Array.isArray(data.seenIntros) ? data.seenIntros : [],
       sound: data.sound !== false,
-      music: data.music !== false,
+      music: data.music === true,
       expertBest: Number.isInteger(data.expertBest) ? data.expertBest! : 0,
     };
   } catch {
