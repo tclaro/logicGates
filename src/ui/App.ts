@@ -1,5 +1,5 @@
 import { audio } from '../audio/AudioManager';
-import type { GateType } from '../core/types';
+import type { Bit, GateType } from '../core/types';
 import { chapterStart, introGateFor } from '../levels/chapters';
 import { getLevel, LEVELS } from '../levels';
 import type { Stage } from '../render/Stage';
@@ -21,6 +21,9 @@ import { IntroScreen } from './screens/IntroScreen';
 import { LevelSelectScreen } from './screens/LevelSelectScreen';
 import { MenuScreen } from './screens/MenuScreen';
 import type { Screen } from './screens/Screen';
+
+/** Som da chave: um para ligar, outro para desligar. */
+const toggleSound = (value: Bit) => audio.play(value ? 'switch_on' : 'switch_off');
 
 /** Navegação entre telas e regras de progresso. */
 export class App {
@@ -126,7 +129,7 @@ export class App {
     this.openOverlay(
       new GlossaryScreen({
         seen: new Set(this.progress.seenIntros),
-        onOpen: (gate) => this.openOverlay(new IntroScreen({ gate, onDone: () => this.closeOverlay() })),
+        onOpen: (gate) => this.openOverlay(new IntroScreen({ gate, onDone: () => this.closeOverlay(), onClick: toggleSound })),
         onBack: () => this.closeOverlay(),
       }),
     );
@@ -142,7 +145,7 @@ export class App {
 
   showIntro(gate: GateType, levelId: number): void {
     this.setProgress(markIntroSeen(this.progress, gate));
-    this.show(new IntroScreen({ gate, levelId, onDone: () => this.playLevel(levelId), onClick: () => audio.play('switch') }));
+    this.show(new IntroScreen({ gate, levelId, onDone: () => this.playLevel(levelId), onClick: toggleSound }));
   }
 
   /** Ganchos comuns aos dois modos de jogo. */
@@ -164,7 +167,7 @@ export class App {
         return !wasUnlocked && isExpertUnlocked(this.progress);
       },
       onLampOn: () => audio.play('lamp_on'),
-      onToggle: (value) => audio.play(value ? 'energize' : 'switch'),
+      onToggle: toggleSound,
       onRestart: () => {},
     };
   }
@@ -184,7 +187,7 @@ export class App {
     const gate = introGateFor(id);
     if (gate && !this.progress.seenIntros.includes(gate)) {
       this.setProgress(markIntroSeen(this.progress, gate));
-      this.show(new IntroScreen({ gate, levelId: id, onDone: () => this.playExpert(id), onClick: () => audio.play('switch') }));
+      this.show(new IntroScreen({ gate, levelId: id, onDone: () => this.playExpert(id), onClick: toggleSound }));
     } else this.playExpert(id);
   }
 
@@ -201,7 +204,6 @@ export class App {
           this.setProgress(recordExpert(this.progress, id));
           audio.play('win');
         },
-        onToggle: () => audio.play('switch'),
         onActivate: () => audio.play('energize'),
         onBurn: () => audio.play('burn'),
         onGameOver: () => audio.play('game_over'),

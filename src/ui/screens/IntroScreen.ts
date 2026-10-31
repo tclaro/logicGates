@@ -12,7 +12,7 @@ export interface IntroOptions {
   /** Fase que começa ao fechar; sem ela, a tela funciona como página do glossário. */
   levelId?: number;
   onDone: () => void;
-  onClick?: () => void;
+  onClick?: (value: Bit) => void;
 }
 
 /** Apresentação de uma porta: símbolo, explicação, demonstração, tabela verdade e notações. */
@@ -40,7 +40,7 @@ export class IntroScreen implements Screen {
         'aria-label': `${['A', 'B'][i]}`,
         onclick: () => {
           this.inputs[i] = this.inputs[i] === 1 ? 0 : 1;
-          opts.onClick?.();
+          opts.onClick?.(this.inputs[i]!);
           this.refresh();
         },
       });

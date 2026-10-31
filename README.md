@@ -176,7 +176,8 @@ O jogo funciona com arte e sons provisórios gerados por código. Para personali
 
 | Arquivo | Quando toca |
 |---|---|
-| `switch.mp3` / `energize.mp3` | Chave desligada / ligada |
+| `switch_on.mp3` / `switch_off.mp3` | Chave ligada / desligada |
+| `energize.mp3` | Modo Expert: botão Ativar |
 | `lamp_on.mp3` | Lâmpada acende |
 | `win.mp3` | Fase concluída |
 | `ui_click.mp3` | Botões das telas |

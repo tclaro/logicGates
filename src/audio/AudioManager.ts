@@ -1,7 +1,7 @@
 import { Howl, Howler } from 'howler';
 
-export type SoundName = 'switch' | 'energize' | 'lamp_on' | 'win' | 'ui_click' | 'burn' | 'game_over';
-const SOUNDS: SoundName[] = ['switch', 'energize', 'lamp_on', 'win', 'ui_click', 'burn', 'game_over'];
+export type SoundName = 'switch_on' | 'switch_off' | 'energize' | 'lamp_on' | 'win' | 'ui_click' | 'burn' | 'game_over';
+const SOUNDS: SoundName[] = ['switch_on', 'switch_off', 'energize', 'lamp_on', 'win', 'ui_click', 'burn', 'game_over'];
 
 function audioUrl(name: string): string {
   return `${import.meta.env.BASE_URL}assets/audio/${name}.mp3`;
@@ -124,9 +124,13 @@ export class AudioManager {
       osc.stop(now + start + dur + 0.02);
     };
     switch (name) {
-      case 'switch':
+      case 'switch_on':
         tone(1400, 0, 0.04, 'square', 0.05);
-        tone(700, 0.012, 0.05, 'triangle', 0.06);
+        tone(900, 0.012, 0.05, 'triangle', 0.06);
+        break;
+      case 'switch_off':
+        tone(1100, 0, 0.04, 'square', 0.05);
+        tone(520, 0.012, 0.05, 'triangle', 0.06);
         break;
       case 'energize':
         tone(220, 0, 0.18, 'sawtooth', 0.025, 660);
