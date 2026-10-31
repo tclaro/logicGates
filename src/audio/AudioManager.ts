@@ -3,6 +3,9 @@ import { Howl, Howler } from 'howler';
 export type SoundName = 'switch_on' | 'switch_off' | 'energize' | 'lamp_on' | 'win' | 'ui_click' | 'burn' | 'game_over';
 const SOUNDS: SoundName[] = ['switch_on', 'switch_off', 'energize', 'lamp_on', 'win', 'ui_click', 'burn', 'game_over'];
 
+/** Ganho acima de 1 para efeitos que soam baixos; o Howler não passa de 1, então eles tocam pelo Web Audio. */
+const BOOST: Partial<Record<SoundName, number>> = { energize: 1.4 };
+
 function audioUrl(name: string): string {
   return `${import.meta.env.BASE_URL}assets/audio/${name}.mp3`;
 }
@@ -22,6 +25,7 @@ async function exists(url: string): Promise<boolean> {
  */
 export class AudioManager {
   private readonly howls = new Map<SoundName, Howl>();
+  private readonly boosted = new Map<SoundName, { data: ArrayBuffer; buffer?: Promise<AudioBuffer> }>();
   private music: Howl | null = null;
   private ctx: AudioContext | null = null;
   private unlockAt = -Infinity;
@@ -31,11 +35,15 @@ export class AudioManager {
   async load(): Promise<void> {
     await Promise.all(
       SOUNDS.map(async (name) => {
-        if (await exists(audioUrl(name))) this.howls.set(name, new Howl({ src: [audioUrl(name)], preload: true }));
+        if (!(await exists(audioUrl(name)))) return;
+        if (BOOST[name]) {
+          const res = await fetch(audioUrl(name)).catch(() => null);
+          if (res?.ok) this.boosted.set(name, { data: await res.arrayBuffer() });
+        } else this.howls.set(name, new Howl({ src: [audioUrl(name)], preload: true }));
       }),
     );
     if (await exists(audioUrl('music'))) {
-      this.music = new Howl({ src: [audioUrl('music')], loop: true, volume: 0.35, html5: true });
+      this.music = new Howl({ src: [audioUrl('music')], loop: true, volume: 0.2, html5: true });
       if (this.musicOn) this.startMusic();
     }
   }
@@ -99,16 +107,43 @@ export class AudioManager {
       howl.play();
       return;
     }
+    if (this.boosted.has(name)) {
+      this.playBoosted(name);
+      return;
+    }
     this.synth(name);
+  }
+
+  /**
+   * Logo após um gesto o contexto ainda está retomando: o som agendado toca assim que ele rodar.
+   * Fora disso, um contexto parado descarta o som (senão vários tocariam juntos depois).
+   */
+  private canPlay(ctx: AudioContext): boolean {
+    const resuming = ctx.state === 'suspended' && performance.now() - this.unlockAt < 400;
+    return ctx.state === 'running' || resuming;
+  }
+
+  private playBoosted(name: SoundName): void {
+    const ctx = this.ctx;
+    const entry = this.boosted.get(name)!;
+    if (!ctx || !this.canPlay(ctx)) return;
+    entry.buffer ??= ctx.decodeAudioData(entry.data.slice(0));
+    void entry.buffer
+      .then((buffer) => {
+        const src = ctx.createBufferSource();
+        const gain = ctx.createGain();
+        src.buffer = buffer;
+        gain.gain.value = BOOST[name] ?? 1;
+        src.connect(gain).connect(ctx.destination);
+        src.start();
+      })
+      .catch(() => {});
   }
 
   private synth(name: SoundName): void {
     const ctx = this.ctx;
     if (!ctx) return;
-    // Logo após um gesto o contexto ainda está retomando: o som agendado toca assim que ele rodar.
-    // Fora disso, um contexto parado descarta o som (senão vários tocariam juntos depois).
-    const resuming = ctx.state === 'suspended' && performance.now() - this.unlockAt < 400;
-    if (ctx.state !== 'running' && !resuming) return;
+    if (!this.canPlay(ctx)) return;
     const now = ctx.currentTime;
     const tone = (freq: number, start: number, dur: number, type: OscillatorType, gain: number, endFreq?: number) => {
       const osc = ctx.createOscillator();

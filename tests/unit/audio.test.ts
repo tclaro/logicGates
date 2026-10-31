@@ -13,6 +13,8 @@ class FakeContext {
   currentTime = 0;
   destination = {};
   oscillators = 0;
+  gains: number[] = [];
+  started = 0;
   constructor() {
     contexts.push(this);
   }
@@ -24,7 +26,11 @@ class FakeContext {
     return {};
   }
   createBufferSource() {
-    return { buffer: null, connect: () => {}, start: () => {} };
+    const node = { buffer: null, connect: (next: unknown) => next ?? node, start: () => this.started++ };
+    return node;
+  }
+  decodeAudioData(): Promise<object> {
+    return Promise.resolve({});
   }
   createOscillator() {
     this.oscillators++;
@@ -32,7 +38,13 @@ class FakeContext {
     return node;
   }
   createGain() {
-    const node = { gain: { setValueAtTime: () => {}, exponentialRampToValueAtTime: () => {} }, connect: () => node };
+    const node = {
+      gain: { value: 1, setValueAtTime: () => {}, exponentialRampToValueAtTime: () => {} },
+      connect: () => {
+        this.gains.push(node.gain.value);
+        return node;
+      },
+    };
     return node;
   }
 }
@@ -126,5 +138,28 @@ describe('desbloqueio do áudio', () => {
     audio.setSound(false);
     audio.play('win');
     expect(contexts[0]!.oscillators).toBe(0);
+  });
+
+  it('o som do Ativar toca 40% mais alto pelo Web Audio', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) =>
+        url.endsWith('/energize.mp3')
+          ? { ok: true, headers: new Headers({ 'content-type': 'audio/mpeg' }), arrayBuffer: async () => new ArrayBuffer(8) }
+          : { ok: false, headers: new Headers() },
+      ),
+    );
+    const { win, fire } = fakeWindow();
+    const audio = new AudioManager();
+    await audio.load();
+    audio.installUnlock(win);
+    fire('click', true);
+    const ctx = contexts[0]!;
+    const silentStarts = ctx.started;
+    audio.play('energize');
+    await new Promise((r) => setTimeout(r, 0));
+    expect(ctx.oscillators).toBe(0);
+    expect(ctx.started).toBe(silentStarts + 1);
+    expect(ctx.gains).toEqual([1.4]);
   });
 });
