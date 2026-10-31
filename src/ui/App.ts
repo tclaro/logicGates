@@ -148,6 +148,11 @@ export class App {
     this.show(new IntroScreen({ gate, levelId, onDone: () => this.playLevel(levelId), onClick: toggleSound }));
   }
 
+  /** A vinheta de vitória fica reservada para a última fase, em qualquer modo. */
+  private playWin(id: number): void {
+    if (id === this.total) audio.play('win');
+  }
+
   /** Ganchos comuns aos dois modos de jogo. */
   private baseHooks(id: number): GameHooks {
     return {
@@ -163,7 +168,7 @@ export class App {
       onWin: () => {
         const wasUnlocked = isExpertUnlocked(this.progress);
         this.setProgress(markCompleted(this.progress, id));
-        audio.play('win');
+        this.playWin(id);
         return !wasUnlocked && isExpertUnlocked(this.progress);
       },
       onLampOn: () => audio.play('lamp_on'),
@@ -202,7 +207,7 @@ export class App {
         onNext: () => this.startExpert(id + 1),
         onWin: () => {
           this.setProgress(recordExpert(this.progress, id));
-          audio.play('win');
+          this.playWin(id);
         },
         onActivate: () => audio.play('energize'),
         onBurn: () => audio.play('burn'),

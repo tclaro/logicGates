@@ -215,9 +215,9 @@ Os sons e a música já estão incluídos; a arte da placa ainda é desenhada po
 | Arquivo | Quando toca |
 |---|---|
 | `switch_on.mp3` / `switch_off.mp3` | Chave ligada / desligada |
-| `energize.mp3` | Modo Expert: botão Ativar (ainda sintetizado) |
-| `lamp_on.mp3` | Lâmpada acende |
-| `win.mp3` | Fase concluída |
+| `energize.mp3` | Modo Expert: botão Ativar |
+| `lamp_on.mp3` | Lâmpada acende (toda fase vencida) |
+| `win.mp3` | Última fase concluída, em qualquer modo |
 | `ui_click.mp3` | Botões das telas |
 | `burn.mp3` | Modo Expert: uma lâmpada de vida queima |
 | `game_over.mp3` | Modo Expert: fim de jogo |
