@@ -222,3 +222,5 @@ Os sons e a música já estão incluídos; a arte da placa ainda é desenhada po
 | `burn.mp3` | Modo Expert: uma lâmpada de vida queima |
 | `game_over.mp3` | Modo Expert: fim de jogo |
 | `music.mp3` | Música de fundo, em loop |
+
+<img src="https://tclaro.goatcounter.com/count?p=/github/logicGates&t=README%20logicGates" alt="" width="1" height="1">
