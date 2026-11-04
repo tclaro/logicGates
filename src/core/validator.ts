@@ -27,8 +27,42 @@ export interface ValidateOptions {
 }
 
 export function validateLevel(level: LevelDef, options: ValidateOptions = {}): ValidationResult {
+  const errors = structureErrors(level, options);
+  if (errors.length) return { ok: false, errors, stats: null };
+
+  if (evaluate(level, initialInputs(level))[level.output] === 1) {
+    errors.push('A lâmpada não pode começar acesa');
+  }
+
+  const result = solve(level);
+  if (result.minClicks === -1) errors.push('A fase não tem solução');
+
+  const best = result.best;
+  const stats: LevelStats = {
+    inputs: level.inputs.length,
+    gates: level.gates.length,
+    depth: depths(level)[level.output] ?? 0,
+    maxFanout: maxFanout(level),
+    minClicks: result.minClicks,
+    solutions: result.solutions.length,
+    trapInputs: best ? level.inputs.filter((input, i) => input.initial === 1 && best[i] === 0).length : 0,
+  };
+  return { ok: errors.length === 0, errors, stats };
+}
+
+/** Maior número de destinos ligados a um mesmo nó. */
+export function maxFanout(level: LevelDef): number {
+  const fanout = new Map<string, number>();
+  for (const gate of level.gates) for (const src of gate.in) fanout.set(src, (fanout.get(src) ?? 0) + 1);
+  return Math.max(1, ...fanout.values());
+}
+
+/**
+ * Erros de estrutura do circuito: ids, tipos, número de entradas, ciclos e nós soltos.
+ * Lista vazia quando o circuito é bem formado.
+ */
+export function structureErrors(level: LevelDef, options: ValidateOptions = {}): string[] {
   const errors: string[] = [];
-  const fail = (): ValidationResult => ({ ok: false, errors, stats: null });
 
   if (!Number.isInteger(level.id) || level.id < 1) errors.push('Id da fase deve ser um inteiro ≥ 1');
   if (level.inputs.length === 0) errors.push('A fase precisa de pelo menos uma chave');
@@ -59,14 +93,14 @@ export function validateLevel(level: LevelDef, options: ValidateOptions = {}): V
   if (!level.gates.some((g) => g.id === level.output)) {
     errors.push(`A saída "${level.output}" precisa ser uma porta existente`);
   }
-  if (errors.length) return fail();
+  if (errors.length) return errors;
 
   try {
     topoOrder(level);
   } catch (e) {
     if (e instanceof CircuitError) {
       errors.push(e.message);
-      return fail();
+      return errors;
     }
     throw e;
   }
@@ -78,26 +112,5 @@ export function validateLevel(level: LevelDef, options: ValidateOptions = {}): V
   for (const gate of level.gates) {
     if (!relevant.has(gate.id)) errors.push(`A porta "${gate.id}" não está ligada à lâmpada`);
   }
-
-  if (evaluate(level, initialInputs(level))[level.output] === 1) {
-    errors.push('A lâmpada não pode começar acesa');
-  }
-
-  const result = solve(level);
-  if (result.minClicks === -1) errors.push('A fase não tem solução');
-
-  const fanout = new Map<string, number>();
-  for (const gate of level.gates) for (const src of gate.in) fanout.set(src, (fanout.get(src) ?? 0) + 1);
-
-  const best = result.best;
-  const stats: LevelStats = {
-    inputs: level.inputs.length,
-    gates: level.gates.length,
-    depth: depths(level)[level.output] ?? 0,
-    maxFanout: Math.max(1, ...fanout.values()),
-    minClicks: result.minClicks,
-    solutions: result.solutions.length,
-    trapInputs: best ? level.inputs.filter((input, i) => input.initial === 1 && best[i] === 0).length : 0,
-  };
-  return { ok: errors.length === 0, errors, stats };
+  return errors;
 }

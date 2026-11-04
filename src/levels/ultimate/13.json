@@ -1,0 +1,55 @@
+{
+  "id": 13,
+  "inputs": [
+    {
+      "id": "a",
+      "initial": 0
+    },
+    {
+      "id": "b",
+      "initial": 0
+    },
+    {
+      "id": "c",
+      "initial": 1
+    }
+  ],
+  "gates": [
+    {
+      "id": "g1",
+      "type": "OR",
+      "in": [
+        "a",
+        "b"
+      ]
+    },
+    {
+      "id": "g2",
+      "type": "XOR",
+      "in": [
+        "b",
+        "c"
+      ]
+    },
+    {
+      "id": "g3",
+      "type": "XOR",
+      "in": [
+        "g1",
+        "g2"
+      ]
+    }
+  ],
+  "output": "g3",
+  "slots": [
+    "g1",
+    "g2",
+    "g3"
+  ],
+  "pieces": {
+    "XOR": 2,
+    "OR": 1
+  },
+  "hidden": true,
+  "clock": "b"
+}

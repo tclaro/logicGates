@@ -1,12 +1,14 @@
 import { Container, Rectangle, Sprite, Texture, TilingSprite, type FederatedPointerEvent } from 'pixi.js';
 import { evaluate, initialInputs } from '../core/circuit';
-import type { Bit, InputState, LevelDef, Point } from '../core/types';
+import type { Bit, GateType, InputState, LevelDef, Point } from '../core/types';
+import { CLOCK_TICKS } from '../core/ultimate';
 import { layoutLevel, type BoardLayout } from '../layout/autoLayout';
 import { BOARD_H, BOARD_W } from '../layout/geometry';
 import type { GameTextures } from './assets';
 import { GateView } from './GateView';
 import { LampView } from './LampView';
 import { Propagation } from './Propagation';
+import { SlotView } from './SlotView';
 import { SwitchView } from './SwitchView';
 import { drawBoardCanvas } from './textures';
 import { TraceLayer } from './TraceLayer';
@@ -21,6 +23,8 @@ export interface BoardCallbacks {
   onGateDrag?(gateId: string, x: number): void;
   /** Modo Expert: a energia ligada por activate() terminou de correr. */
   onActivated?(lampOn: boolean): void;
+  /** Modo Ultimate: toque num encaixe. */
+  onSlotTap?(slotId: string): void;
 }
 
 export interface BoardOptions {
@@ -28,7 +32,16 @@ export interface BoardOptions {
   editable?: boolean;
   /** Modo Expert: a energia fica escondida até activate(). */
   hidden?: boolean;
+  /** Modo Ultimate: portas que começam como encaixes vazios. */
+  slots?: readonly string[];
+  /** Modo Ultimate: as chaves não respondem ao toque. */
+  fixedInputs?: boolean;
+  /** Modo Ultimate: chave que alterna sozinha durante a ativação. */
+  clock?: string;
 }
+
+/** Tempo que a lâmpada fica à mostra em cada estado da chave automática. */
+const CLOCK_HOLD = 0.7;
 
 const boardTextureCache = new Map<number, Texture>();
 
@@ -43,11 +56,20 @@ function proceduralBoard(seed: number): Texture {
 
 /** Placa de uma fase: desenha o circuito, recebe toques e anima a energia. */
 export class Board extends Container {
+  /** A fase em jogo; no Ultimate é uma cópia, com o tipo das peças colocadas nos encaixes. */
+  readonly level: LevelDef;
   readonly layout: BoardLayout;
   private readonly prop: Propagation;
   private readonly traces: TraceLayer;
   private readonly gateViews = new Map<string, GateView>();
   private readonly switchViews = new Map<string, SwitchView>();
+  private readonly slotViews = new Map<string, SlotView>();
+  /** Encaixes ainda sem peça. */
+  private readonly empty: Set<string>;
+  private readonly fixedInputs: boolean;
+  private readonly clock: string | null;
+  /** Ativação com chave automática em andamento: alternâncias restantes e tempo no estado atual. */
+  private cycle: { ticks: number; hold: number } | null = null;
   private readonly lamp: LampView;
   private inputs: InputState;
   private dirty = true;
@@ -60,15 +82,20 @@ export class Board extends Container {
   private energizing = false;
 
   constructor(
-    readonly level: LevelDef,
+    level: LevelDef,
     textures: GameTextures,
     private readonly callbacks: BoardCallbacks = {},
     options: BoardOptions = {},
   ) {
     super();
+    // As peças mudam o tipo das portas; a fase original fica intacta.
+    this.level = options.slots ? structuredClone(level) : level;
     this.layout = layoutLevel(level);
     this.inputs = initialInputs(level);
     this.hidden = options.hidden ?? false;
+    this.empty = new Set(options.slots ?? []);
+    this.fixedInputs = options.fixedInputs ?? false;
+    this.clock = options.clock ?? null;
 
     const bg = textures.board
       ? new TilingSprite({ texture: textures.board, width: BOARD_W, height: BOARD_H })
@@ -77,9 +104,10 @@ export class Board extends Container {
     bg.height = BOARD_H;
     this.addChild(bg);
 
-    this.prop = new Propagation(level, this.layout.edges, this.inputs);
+    this.prop = new Propagation(this.level, this.layout.edges, this.inputs, { empty: this.empty });
     this.prop.onLampChange = (v) => {
-      this.lamp.setOn(v === 1);
+      // Com a chave automática, a lâmpada só mostra o estado já assentado (sem piscar na transição).
+      if (!this.cycle) this.lamp.setOn(v === 1);
       this.callbacks.onLampChange?.(v === 1);
     };
     this.prop.onGateChange = (id, v) => {
@@ -96,6 +124,14 @@ export class Board extends Container {
     this.addChild(this.lamp);
 
     for (const g of this.layout.gates) {
+      if (this.empty.has(g.id)) {
+        const slot = new SlotView(g.id, this.level.gates.find((gate) => gate.id === g.id)!.in.length);
+        slot.position.set(g.x, g.y);
+        slot.on('pointertap', () => this.callbacks.onSlotTap?.(g.id));
+        this.slotViews.set(g.id, slot);
+        this.addChild(slot);
+        continue;
+      }
       const view = new GateView(g.id, g.type);
       view.position.set(g.x, g.y);
       view.setActive(this.prop.nodeValue(g.id) === 1);
@@ -114,6 +150,8 @@ export class Board extends Container {
       view.x = input.x;
       view.setValue(this.inputs[input.id]!, false);
       view.on('pointertap', () => this.toggle(input.id));
+      if (this.fixedInputs) view.setFixed();
+      if (input.id === this.clock) view.markClock();
       this.switchViews.set(input.id, view);
       this.addChild(view);
     }
@@ -134,7 +172,42 @@ export class Board extends Container {
 
   /** Valor lógico (instantâneo) de cada nó. */
   logicalValues(): Record<string, Bit> {
-    return evaluate(this.level, this.inputs);
+    return evaluate(this.level, this.inputs, undefined, this.empty);
+  }
+
+  /** Modo Ultimate: peça em cada encaixe (null = vazio). */
+  get slotFill(): Record<string, GateType | null> {
+    return Object.fromEntries([...this.slotViews].map(([id, view]) => [id, view.filled]));
+  }
+
+  /**
+   * Modo Ultimate: põe uma peça no encaixe ou o esvazia. Com a energia visível, a mudança
+   * corre pelas trilhas; com ela escondida, mexer depois de uma ativação apaga a placa.
+   */
+  setSlot(slotId: string, type: GateType | null): void {
+    const slot = this.slotViews.get(slotId);
+    if (!slot || this.locked) return;
+    const view = slot.setPiece(type);
+    if (view) this.gateViews.set(slotId, view);
+    else this.gateViews.delete(slotId);
+    if (type) this.empty.delete(slotId);
+    else this.empty.add(slotId);
+    this.prop.setGate(slotId, type, !this.hidden);
+    if (this.hidden && this.revealed) this.darken();
+    this.dirty = true;
+  }
+
+  /** Encaixe sob um ponto da placa, se houver. */
+  slotAt(p: Point): string | null {
+    for (const [id, view] of this.slotViews) {
+      if (Math.abs(p.x - view.x) <= 75 && Math.abs(p.y - view.y) <= 85) return id;
+    }
+    return null;
+  }
+
+  /** Destaca os encaixes com esse número de entradas (null tira o destaque). */
+  hintSlots(arity: number | null): void {
+    for (const view of this.slotViews.values()) view.setHint(arity !== null && view.arity === arity);
   }
 
   get lampOn(): boolean {
@@ -151,7 +224,7 @@ export class Board extends Container {
   }
 
   toggle(inputId: string): void {
-    if (this.locked || !(inputId in this.inputs)) return;
+    if (this.locked || this.fixedInputs || !(inputId in this.inputs)) return;
     const value: Bit = this.inputs[inputId] === 1 ? 0 : 1;
     this.inputs[inputId] = value;
     this.switchViews.get(inputId)!.setValue(value);
@@ -161,8 +234,15 @@ export class Board extends Container {
     this.callbacks.onToggle?.(inputId, value);
   }
 
-  /** Volta as chaves ao estado inicial, sem animação. */
+  /** Volta as chaves ao estado inicial e esvazia os encaixes, sem animação. */
   reset(): void {
+    this.cycle = null;
+    for (const [id, slot] of this.slotViews) {
+      slot.setPiece(null);
+      this.gateViews.delete(id);
+      this.empty.add(id);
+      this.prop.setGate(id, null, false);
+    }
     this.inputs = initialInputs(this.level);
     this.prop.reset(this.level, this.inputs);
     for (const [id, view] of this.switchViews) view.setValue(this.inputs[id]!, false);
@@ -179,6 +259,7 @@ export class Board extends Container {
     if (!this.hidden || this.locked || this.energizing) return;
     this.darken();
     this.prop.energize(this.inputs);
+    if (this.clock) this.cycle = { ticks: CLOCK_TICKS, hold: 0 };
     this.revealed = true;
     this.energizing = true;
     this.locked = true;
@@ -201,11 +282,7 @@ export class Board extends Container {
   update(dt: number): void {
     const wasAnimating = this.prop.animating;
     this.prop.update(dt);
-    if (this.energizing && !this.prop.animating) {
-      this.energizing = false;
-      this.locked = false;
-      this.callbacks.onActivated?.(this.lampOn);
-    }
+    if (this.energizing && !this.prop.animating) this.settle(dt);
     if (wasAnimating || this.dirty) {
       this.traces.redraw(this.prop);
       this.dirty = false;
@@ -214,6 +291,40 @@ export class Board extends Container {
     this.lamp.update(dt);
     for (const v of this.gateViews.values()) v.update(dt);
     for (const v of this.switchViews.values()) v.update(dt);
+    for (const v of this.slotViews.values()) v.update(dt);
+  }
+
+  /**
+   * A energia assentou depois de uma ativação. Com chave automática, a lâmpada precisa
+   * aguentar acesa a cada alternância; no primeiro estado apagado, a ativação termina.
+   */
+  private settle(dt: number): void {
+    const cycle = this.cycle;
+    if (cycle) {
+      this.lamp.setOn(this.lampOn);
+      if (this.lampOn && cycle.ticks > 0) {
+        cycle.hold += dt;
+        if (cycle.hold >= CLOCK_HOLD) {
+          cycle.ticks--;
+          cycle.hold = 0;
+          this.tick(this.clock!);
+        }
+        return;
+      }
+    }
+    this.cycle = null;
+    this.energizing = false;
+    this.locked = false;
+    this.callbacks.onActivated?.(this.lampOn);
+  }
+
+  /** A chave automática muda sozinha e a energia corre a partir dela. */
+  private tick(inputId: string): void {
+    const value: Bit = this.inputs[inputId] === 1 ? 0 : 1;
+    this.inputs[inputId] = value;
+    this.switchViews.get(inputId)!.setValue(value);
+    this.prop.setInput(inputId, value);
+    this.dirty = true;
   }
 
   /** Centro de uma chave ou porta em coordenadas da placa. */

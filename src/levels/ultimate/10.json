@@ -1,0 +1,59 @@
+{
+  "id": 10,
+  "inputs": [
+    {
+      "id": "a",
+      "initial": 0
+    },
+    {
+      "id": "b",
+      "initial": 1
+    },
+    {
+      "id": "c",
+      "initial": 0
+    },
+    {
+      "id": "d",
+      "initial": 1
+    }
+  ],
+  "gates": [
+    {
+      "id": "g1",
+      "type": "AND",
+      "in": [
+        "a",
+        "b"
+      ]
+    },
+    {
+      "id": "g2",
+      "type": "NOR",
+      "in": [
+        "c",
+        "d"
+      ]
+    },
+    {
+      "id": "g3",
+      "type": "NOR",
+      "in": [
+        "g1",
+        "g2"
+      ]
+    }
+  ],
+  "output": "g3",
+  "slots": [
+    "g1",
+    "g2",
+    "g3"
+  ],
+  "pieces": {
+    "NOR": 2,
+    "OR": 1,
+    "AND": 1
+  },
+  "hidden": true
+}

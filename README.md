@@ -10,7 +10,7 @@ Um jogo de navegador gratuito que ensina portas lógicas para quem está começa
 
 ![Deploy](https://github.com/tclaro/logicGates/actions/workflows/deploy.yml/badge.svg)
 ![Fases](https://img.shields.io/badge/fases-36-18d8ff)
-![Modos](https://img.shields.io/badge/modos-normal%20%C2%B7%20Expert-ff9a3c)
+![Modos](https://img.shields.io/badge/modos-normal%20%C2%B7%20Expert%20%C2%B7%20Ultimate-ff9a3c)
 ![Portas](https://img.shields.io/badge/portas-AND%20%C2%B7%20OR%20%C2%B7%20NOT%20%C2%B7%20NAND%20%C2%B7%20NOR%20%C2%B7%20XOR%20%C2%B7%20XNOR-ffd760)
 ![Idioma](https://img.shields.io/badge/idioma-pt--BR-0c4031)
 
@@ -32,6 +32,7 @@ O jogo foi pensado para:
 - **Aula e estudo individual:** o professor pode projetar o jogo em sala; o aluno pode jogar sozinho no celular.
 - **Aprender sem medo de errar:** no modo normal não há pontuação, tempo nem vidas. Errar é só mudar uma chave de volta.
 - **Desafiar quem já aprendeu:** o [modo Expert](#-modo-expert) esconde a energia e cobra que o aluno preveja o resultado antes de testar.
+- **Inverter o problema:** no [modo Ultimate](#-modo-ultimate) as chaves são fixas e o aluno escolhe as portas, montando o circuito que acende a lâmpada.
 
 ### O que o aluno aprende
 
@@ -93,6 +94,34 @@ O modo Expert aparece no menu principal com um cadeado até o aluno **concluir a
 | Tocar numa porta mostra a tabela verdade **sem** destacar a linha atual | Destacar a linha revelaria os valores que o modo esconde |
 | A apresentação de uma porta só aparece se o aluno ainda não a viu | Quem chegou até aqui já passou pelas apresentações no modo normal |
 | O menu mostra o recorde: a fase mais alta vencida no modo Expert | Dá ao aluno uma meta para superar |
+
+## 🧩 Modo Ultimate
+
+Nos outros modos o circuito está pronto e o aluno descobre as chaves. No Ultimate é o contrário: **as chaves são fixas, a fiação também, e o aluno escolhe que porta vai em cada encaixe** para a lâmpada acender.
+
+### Como liberar
+
+O modo Ultimate aparece no menu com um cadeado até o aluno **vencer a fase 10 do modo Expert**. Ao vencê-la pela primeira vez, a faixa diagonal anuncia "Modo Ultimate liberado!". Tocar num modo ainda bloqueado mostra uma explicação do que ele é e de como liberá-lo.
+
+### Como se joga
+
+1. **A placa traz encaixes tracejados** no lugar de algumas portas. Os pinos de cada encaixe dizem quantas entradas ele tem: a NOT só cabe nos de um pino, as demais nos de dois.
+2. **A bandeja embaixo mostra as peças disponíveis**, com a quantidade de cada uma. O aluno arrasta a peça até o encaixe, ou toca na peça e depois no encaixe. Tocar numa peça já encaixada a devolve à bandeja.
+3. **Nas primeiras fases a energia é visível**: a lâmpada acende assim que o circuito montado está certo.
+4. **A partir da fase 4 a energia fica escondida**, como no Expert: com todos os encaixes preenchidos o aluno toca em Ativar, e cada montagem errada queima uma das 3 lâmpadas de vida. Para tentar de novo, ele troca alguma peça.
+5. **Algumas fases têm uma chave com relógio**, que alterna sozinha entre 0 e 1 depois da ativação. A lâmpada precisa ficar acesa nos dois valores, ou seja, o circuito tem que funcionar qualquer que seja essa entrada.
+6. **Se as 3 lâmpadas queimarem**, as peças voltam para a bandeja e a fase recomeça com as vidas renovadas.
+
+### Regras
+
+| Regra | Por quê |
+|---|---|
+| As fases são liberadas em ordem, com progresso salvo e tela de seleção própria | O modo tem uma progressão própria, independente dos outros |
+| As peças são contadas | Restringe as escolhas e cria desafios como "use só estas portas" |
+| Qualquer montagem certa vence a fase | O aluno é avaliado pelo comportamento do circuito, não por adivinhar a resposta gravada |
+| No máximo uma chave com relógio por fase | Mantém a verificação curta: dois estados, alternados três vezes |
+| Uma peça nova aparece com a apresentação da porta, se o aluno ainda não a viu | O Ultimate pode chegar a portas que o aluno não viu no modo normal |
+
 
 ## 🪜 Progressão das fases
 
@@ -163,8 +192,10 @@ npm run build
 | `src/levels/chapters.ts` | Em que fase cada porta é apresentada |
 | `src/layout` | Layout automático em camadas e roteamento das trilhas em 0°, 45° e 90° |
 | `src/render` | A placa: trilhas, brilho, portas, lâmpada, chaves e a propagação animada |
-| `src/ui` | Menu, seleção de fases, introduções, glossário, HUD, tabela verdade e modo Expert (vidas e botão Ativar) |
-| `src/storage/progress.ts` | Progresso salvo no `localStorage`: fases concluídas, portas vistas, som e recorde do Expert |
+| `src/core/ultimate.ts` | Modo Ultimate: encaixes, estoque de peças, chave com relógio, solver de montagens e validador |
+| `src/levels/ultimate` | Fases do modo Ultimate (`NN.json`) |
+| `src/ui` | Menu, seleção de fases, introduções, glossário, HUD, tabela verdade, modo Expert (vidas e botão Ativar) e bandeja do Ultimate |
+| `src/storage/progress.ts` | Progresso salvo no `localStorage`: fases concluídas, portas vistas, som, recorde do Expert e fases do Ultimate |
 | `src/i18n/pt-BR.json` | Todos os textos do jogo, prontos para tradução |
 | `editor/` | Editor visual de fases |
 
@@ -191,6 +222,33 @@ Os testes garantem que toda fase:
 - tem todas as chaves e portas ligadas à lâmpada;
 - só usa portas já apresentadas;
 - tem layout sem portas sobrepostas e sem trilhas atravessando portas.
+
+#### Fases do modo Ultimate
+
+Ficam em `src/levels/ultimate/`. O formato é o mesmo, com quatro campos a mais:
+
+```json
+{
+  "id": 7,
+  "inputs": [{ "id": "a", "initial": 0 }],
+  "gates": [
+    { "id": "g1", "type": "NOT", "in": ["a"] },
+    { "id": "g2", "type": "OR", "in": ["a", "g1"] }
+  ],
+  "output": "g2",
+  "slots": ["g1", "g2"],
+  "pieces": { "NOT": 1, "AND": 1, "OR": 1 },
+  "hidden": true,
+  "clock": "a"
+}
+```
+
+- `slots`: portas que começam vazias. O `type` gravado nelas é a solução de referência.
+- `pieces`: quantas peças de cada porta a bandeja oferece.
+- `hidden`: energia escondida até Ativar, com 3 vidas.
+- `clock`: chave que alterna sozinha; exige `hidden`.
+
+Os testes garantem que toda fase do Ultimate tem solução, que a solução de referência é válida, que a lâmpada não acende com os encaixes vazios, que há no máximo 2 montagens certas e que a fase que estreia uma peça exige essa peça em toda solução.
 
 Para ver as estatísticas de dificuldade de cada fase, rode este comando:
 

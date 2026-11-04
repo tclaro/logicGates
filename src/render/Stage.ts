@@ -78,6 +78,14 @@ export class Stage {
     return { x: rect.left + global.x, y: rect.top + global.y };
   }
 
+  /** Converte um ponto da janela (clientX/clientY) para coordenadas da placa. */
+  toBoard(p: Point): Point {
+    if (!this.board) return p;
+    const rect = this.app.canvas.getBoundingClientRect();
+    const local = this.board.toLocal({ x: p.x - rect.left, y: p.y - rect.top });
+    return { x: local.x, y: local.y };
+  }
+
   /** Tamanho de uma unidade da placa em px de CSS. */
   get scale(): number {
     return this.board?.scale.x ?? 1;

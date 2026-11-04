@@ -35,5 +35,22 @@ export interface LevelDef {
   layout?: LayoutOverrides;
 }
 
+/** Peças disponíveis no modo Ultimate: quantas de cada porta. */
+export type Pieces = Partial<Record<GateType, number>>;
+
+/** Fase do modo Ultimate: as chaves são fixas e o jogador escolhe o tipo das portas marcadas como encaixe. */
+export interface UltimateLevelDef extends LevelDef {
+  /** Portas que começam vazias; o `type` gravado nelas é a solução de referência. */
+  slots: string[];
+  pieces: Pieces;
+  /** Energia escondida até o jogador ativar, com 3 vidas (obrigatório com `clock`). */
+  hidden?: boolean;
+  /** Chave que alterna sozinha: a lâmpada precisa ficar acesa nos dois valores dela. */
+  clock?: string;
+}
+
+/** Peça colocada em cada encaixe (null = vazio). */
+export type SlotFill = Record<string, GateType | null>;
+
 export type InputState = Record<string, Bit>;
 export type NodeValues = Record<string, Bit>;

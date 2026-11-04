@@ -88,6 +88,22 @@ export class SwitchView extends Container {
     }
   }
 
+  /** Modo Ultimate: a chave não responde ao toque. */
+  setFixed(): void {
+    this.eventMode = 'none';
+    this.cursor = 'default';
+  }
+
+  /** Selo de relógio no canto: esta chave alterna sozinha quando a energia é ligada. */
+  markClock(): void {
+    const badge = new Graphics();
+    const x = SWITCH_W / 2 - 2;
+    const y = -SWITCH_H / 2 + 2;
+    badge.circle(x, y, 22).fill({ color: PALETTE.lampWarm }).stroke({ width: 4, color: PALETTE.copperShadow });
+    badge.moveTo(x, y).lineTo(x, y - 12).moveTo(x, y).lineTo(x + 9, y + 5).stroke({ width: 4, color: PALETTE.copperShadow, cap: 'round' });
+    this.addChild(badge);
+  }
+
   get current(): Bit {
     return this.value;
   }

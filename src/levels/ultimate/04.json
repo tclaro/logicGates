@@ -1,0 +1,41 @@
+{
+  "id": 4,
+  "inputs": [
+    {
+      "id": "a",
+      "initial": 0
+    },
+    {
+      "id": "b",
+      "initial": 0
+    }
+  ],
+  "gates": [
+    {
+      "id": "g1",
+      "type": "NOT",
+      "in": [
+        "a"
+      ]
+    },
+    {
+      "id": "g2",
+      "type": "OR",
+      "in": [
+        "g1",
+        "b"
+      ]
+    }
+  ],
+  "output": "g2",
+  "slots": [
+    "g1",
+    "g2"
+  ],
+  "pieces": {
+    "NOT": 1,
+    "AND": 1,
+    "OR": 1
+  },
+  "hidden": true
+}

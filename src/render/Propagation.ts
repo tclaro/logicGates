@@ -1,6 +1,6 @@
 import { evaluate } from '../core/circuit';
 import { applyGate } from '../core/logic';
-import type { Bit, GateDef, InputState, LevelDef } from '../core/types';
+import type { Bit, GateDef, GateType, InputState, LevelDef } from '../core/types';
 import { LAMP_ID, type RoutedEdge } from '../layout/autoLayout';
 
 interface Wave {
@@ -21,6 +21,8 @@ export interface PropagationOptions {
   speed?: number;
   /** Tempo que cada porta leva para reagir a uma mudança na entrada. */
   gateDelay?: number;
+  /** Modo Ultimate: portas que começam como encaixes vazios (não conduzem). */
+  empty?: Iterable<string>;
 }
 
 /**
@@ -38,6 +40,8 @@ export class Propagation {
   private readonly pending = new Map<string, number>();
   /** Nós que devem emitir o próximo valor mesmo sem mudança (energização a partir do escuro). */
   private readonly forced = new Set<string>();
+  /** Encaixes vazios: a energia chega até eles e para. */
+  private readonly empty: Set<string>;
   private lamp: Bit = 0;
 
   onLampChange: (value: Bit) => void = () => {};
@@ -46,6 +50,7 @@ export class Propagation {
   constructor(level: LevelDef, edges: readonly RoutedEdge[], inputs: InputState, options: PropagationOptions = {}) {
     this.speed = options.speed ?? 1100;
     this.gateDelay = options.gateDelay ?? 0.05;
+    this.empty = new Set(options.empty ?? []);
     for (const gate of level.gates) this.gates.set(gate.id, gate);
     for (const edge of edges) {
       const state: EdgeState = { edge, settled: 0, waves: [] };
@@ -59,7 +64,7 @@ export class Propagation {
 
   /** Coloca tudo em repouso no valor lógico de `inputs`, sem animação. */
   reset(level: LevelDef, inputs: InputState): void {
-    const values = evaluate(level, inputs);
+    const values = evaluate(level, inputs, undefined, this.empty);
     this.pending.clear();
     this.forced.clear();
     for (const [id, v] of Object.entries(values)) this.sourceValue.set(id, v);
@@ -92,6 +97,20 @@ export class Propagation {
 
   setInput(id: string, value: Bit): void {
     this.emit(id, value);
+  }
+
+  /**
+   * Modo Ultimate: põe uma peça no encaixe (ou esvazia, com null). Com `react`, a porta
+   * recalcula a saída com o que já chegou aos pinos e a mudança corre pelas trilhas.
+   */
+  setGate(id: string, type: GateType | null, react: boolean): void {
+    const gate = this.gates.get(id);
+    if (!gate) return;
+    if (type) {
+      gate.type = type;
+      this.empty.delete(id);
+    } else this.empty.add(id);
+    if (react) this.pending.set(id, this.gateDelay);
   }
 
   /** Apaga tudo (trilhas, portas e lâmpada em 0), sem animação. */
@@ -153,7 +172,7 @@ export class Propagation {
       }
       this.pending.delete(gateId);
       const gate = this.gates.get(gateId)!;
-      const out = applyGate(gate.type, this.gateInputs(gateId));
+      const out: Bit = this.empty.has(gateId) ? 0 : applyGate(gate.type, this.gateInputs(gateId));
       if (out !== this.sourceValue.get(gateId) || this.forced.has(gateId)) {
         this.emit(gateId, out);
         this.onGateChange(gateId, out);

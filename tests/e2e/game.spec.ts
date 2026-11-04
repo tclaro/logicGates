@@ -8,6 +8,7 @@ interface GameState {
   animating: boolean;
   won: boolean;
   lives: number | null;
+  slots: Record<string, string | null>;
 }
 
 declare global {
@@ -15,6 +16,9 @@ declare global {
     __game: {
       pointOf(id: string): { x: number; y: number } | null;
       solution(levelId: number): Bit[] | null;
+      ultimateSolution(levelId: number): Record<string, string> | null;
+      app: { startExpert(id: number): void };
+      ultimateLevels: number;
       state(): GameState | null;
     };
   }
@@ -174,8 +178,13 @@ test('no jogo, o som se configura e o botão de menu volta ao menu principal', a
 test('modo Expert: liberado na fase 10, energia escondida, vidas e fim de jogo', async ({ page: before }) => {
   await seedProgress(before, [1, 2, 3, 4, 5, 6, 7, 8, 9], ['AND', 'OR', 'NOT']);
   await before.goto('/');
-  await expect(before.getByTestId('expert')).toBeDisabled();
+  await expect(before.getByTestId('expert')).toHaveAttribute('aria-disabled', 'true');
   await expect(before.getByTestId('expert')).toContainText('Conclua a fase 10');
+  // Tocar no modo bloqueado explica como liberar, sem abrir nada.
+  // force: o botão bloqueado tem aria-disabled, mas continua tocável.
+  await before.getByTestId('expert').click({ force: true });
+  await expect(before.getByTestId('menu-notice')).toContainText('Conclua a fase 10 do Modo Iniciante');
+  await expect(before.getByTestId('play')).toBeVisible();
 
   // Vencer a fase 10 mostra o aviso de liberação; rejogá-la não mostra de novo.
   await before.getByTestId('play').click();
@@ -279,5 +288,130 @@ test('todas as 36 fases podem ser vencidas pela solução do solver', async ({ p
     expect((await state(page))!.lampOn, `fase ${level} começa apagada`).toBe(false);
     await solve(page, level);
     await expect.poll(async () => (await state(page))!.won, { timeout: 8000, message: `fase ${level}` }).toBe(true);
+  }
+});
+
+/** Monta a solução do solver tocando na peça e depois no encaixe. */
+async function assemble(page: Page, level: number): Promise<void> {
+  const fill = await page.evaluate((id) => window.__game.ultimateSolution(id), level);
+  for (const [slot, piece] of Object.entries(fill!)) {
+    // Com estoque sobrando a peça continua escolhida depois de encaixar; tocar de novo a desmarcaria.
+    const btn = page.getByTestId(`piece-${piece}`);
+    if ((await btn.getAttribute('aria-pressed')) !== 'true') await btn.click();
+    await tap(page, slot);
+  }
+  await expect.poll(async () => (await state(page))!.slots).toEqual(fill);
+}
+
+test('modo Ultimate bloqueado explica como liberar', async ({ page }) => {
+  await seedProgress(page, ALL_BUT_LAST, ALL_GATES, { expertBest: 3 });
+  await page.goto('/');
+  const ultimate = page.getByTestId('ultimate');
+  await expect(ultimate).toHaveAttribute('aria-disabled', 'true');
+  await expect(ultimate).toContainText('Vença a fase 10 do Expert');
+  await ultimate.click({ force: true });
+  await expect(page.getByTestId('menu-notice')).toContainText('vence a fase 10 do Modo Expert');
+  await expect(ultimate).toBeVisible();
+});
+
+test('vencer a fase 10 do Expert libera o Ultimate', async ({ page }) => {
+  await seedProgress(page, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10], ALL_GATES, { expertBest: 9 });
+  await page.goto('/');
+  await page.waitForFunction(() => window.__game !== undefined);
+  await page.evaluate(() => window.__game.app.startExpert(10));
+  await waitForBoard(page, 10);
+  await solve(page, 10);
+  await page.getByTestId('activate').click();
+  await expect(page.getByTestId('ultimate-unlocked')).toContainText('Modo Ultimate liberado!', { timeout: 8000 });
+  await page.getByRole('button', { name: 'Menu principal' }).click();
+  await expect(page.getByTestId('ultimate')).not.toHaveAttribute('aria-disabled', 'true');
+  await expect(page.getByTestId('ultimate')).toContainText('Monte o circuito com as peças');
+});
+
+test('Ultimate: arrastar a peça até o encaixe, com energia visível', async ({ page }) => {
+  await seedProgress(page, [], ALL_GATES, { expertBest: 10 });
+  await page.goto('/');
+  await page.getByTestId('ultimate').click();
+  await waitForBoard(page, 1);
+  await expect(page.getByTestId('level-title')).toHaveText('UltimateFase 1');
+  // Chaves fixas: tocar nelas não muda nada.
+  const before = (await state(page))!.inputs;
+  await tap(page, 'a');
+  expect((await state(page))!.inputs).toEqual(before);
+
+  // Peça errada primeiro: a lâmpada não acende e a peça volta à bandeja com um toque.
+  const piece = (await page.getByTestId('piece-AND').boundingBox())!;
+  const slot = (await page.evaluate(() => window.__game.pointOf('g1')))!;
+  await page.mouse.move(piece.x + piece.width / 2, piece.y + piece.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(slot.x, slot.y, { steps: 12 });
+  await page.mouse.up();
+  await expect.poll(async () => (await state(page))!.slots).toEqual({ g1: 'AND' });
+  await expect(page.getByTestId('piece-AND')).toBeDisabled();
+  await page.waitForTimeout(800);
+  expect((await state(page))!.won).toBe(false);
+  await tap(page, 'g1');
+  await expect.poll(async () => (await state(page))!.slots).toEqual({ g1: null });
+
+  await assemble(page, 1);
+  await expect.poll(async () => (await state(page))!.won, { timeout: 5000 }).toBe(true);
+  await expect(page.getByTestId('win-text')).toHaveText('Você montou o circuito da fase 1.');
+  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('portas-logicas:progress')!));
+  expect(saved.ultimateCompleted).toEqual([1]);
+  await page.getByTestId('next').click();
+  await waitForBoard(page, 2);
+});
+
+test('Ultimate: chave automática, erro queima vida e acerto vence', async ({ page }) => {
+  await seedProgress(page, [], ALL_GATES, { expertBest: 10, ultimateCompleted: [1, 2, 3, 4, 5, 6] });
+  await page.goto('/');
+  await page.getByTestId('ultimate').click();
+  // Fase 7: OR(a, NOT a) com a chave a alternando sozinha.
+  await waitForBoard(page, 7);
+  const activate = page.getByTestId('activate');
+  await expect(activate).toHaveText('Preencha todos os encaixes');
+  await expect(activate).toBeDisabled();
+  await page.getByTestId('piece-NOT').click();
+  await tap(page, 'g1');
+  await page.getByTestId('piece-AND').click();
+  await tap(page, 'g2');
+  await expect(activate).toBeEnabled();
+  await activate.click();
+  await expect.poll(async () => (await state(page))!.lives, { timeout: 8000 }).toBe(2);
+  await expect(activate).toHaveText('Troque alguma peça para tentar de novo');
+
+  // OR no lugar do AND: a lâmpada aguenta a chave alternando e a fase é vencida.
+  await page.getByTestId('piece-OR').click();
+  await tap(page, 'g2');
+  await expect.poll(async () => (await state(page))!.slots).toEqual({ g1: 'NOT', g2: 'OR' });
+  await activate.click();
+  const seen = new Set<number>();
+  await expect
+    .poll(
+      async () => {
+        const s = (await state(page))!;
+        seen.add(s.inputs.a!);
+        return s.won;
+      },
+      { timeout: 10000, intervals: [100] },
+    )
+    .toBe(true);
+  expect([...seen].sort()).toEqual([0, 1]);
+  expect((await state(page))!.lives).toBe(2);
+});
+
+test('todas as fases do Ultimate podem ser vencidas pela montagem do solver', async ({ page }) => {
+  test.setTimeout(240_000);
+  await page.goto('/');
+  await page.waitForFunction(() => window.__game !== undefined);
+  const total = await page.evaluate(() => window.__game.ultimateLevels);
+  expect(total).toBeGreaterThan(0);
+  for (let level = 1; level <= total; level++) {
+    await page.goto(`/?ultimate=${level}`);
+    await waitForBoard(page, level);
+    expect((await state(page))!.lampOn, `fase ${level} começa apagada`).toBe(false);
+    await assemble(page, level);
+    if ((await state(page))!.lives !== null) await page.getByTestId('activate').click();
+    await expect.poll(async () => (await state(page))!.won, { timeout: 10000, message: `fase ${level}` }).toBe(true);
   }
 });

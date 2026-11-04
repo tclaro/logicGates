@@ -1,9 +1,14 @@
+import type { GateType } from '../../core/types';
 import { t } from '../../i18n/i18n';
 import { introGateFor } from '../../levels/chapters';
 import { h, iconButton, ICONS } from '../dom';
 import type { Screen } from './Screen';
 
 export interface LevelSelectOptions {
+  /** Título da tela (padrão: "Fases"). */
+  title?: string;
+  /** Porta nova de cada fase, mostrada no quadrinho (padrão: a do modo normal). */
+  gateFor?(levelId: number): GateType | undefined;
   total: number;
   completed: ReadonlySet<number>;
   highestUnlocked: number;
@@ -19,7 +24,7 @@ export class LevelSelectScreen implements Screen {
     for (let id = 1; id <= o.total; id++) {
       const done = o.completed.has(id);
       const locked = id > o.highestUnlocked;
-      const gate = introGateFor(id);
+      const gate = (o.gateFor ?? introGateFor)(id);
       const label = locked ? t('levels.locked', { level: id }) : done ? t('levels.done', { level: id }) : t('levels.open', { level: id });
       grid.append(
         h(
@@ -40,7 +45,7 @@ export class LevelSelectScreen implements Screen {
     this.el = h(
       'section',
       { class: 'screen list-screen' },
-      h('header', { class: 'screen-header' }, iconButton('back', t('common.back'), o.onBack), h('h1', { text: t('levels.title') })),
+      h('header', { class: 'screen-header' }, iconButton('back', t('common.back'), o.onBack), h('h1', { text: o.title ?? t('levels.title') })),
       grid,
     );
   }

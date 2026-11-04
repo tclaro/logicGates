@@ -12,15 +12,20 @@ export interface Progress {
   expertBest: number;
   /** Modo Expert: se o aluno já começou alguma partida. */
   expertPlayed: boolean;
+  /** Modo Ultimate: fases concluídas. */
+  ultimateCompleted: number[];
 }
 
 /** Fase do modo normal que libera o modo Expert ao ser concluída. */
 export const EXPERT_UNLOCK_LEVEL = 10;
 
+/** Fase do modo Expert que libera o modo Ultimate ao ser vencida. */
+export const ULTIMATE_UNLOCK_LEVEL = 10;
+
 const KEY = 'portas-logicas:progress';
 
 export function defaultProgress(): Progress {
-  return { version: 1, completed: [], seenIntros: [], sound: true, music: false, expertBest: 0, expertPlayed: false };
+  return { version: 1, completed: [], seenIntros: [], sound: true, music: false, expertBest: 0, expertPlayed: false, ultimateCompleted: [] };
 }
 
 /** Lê o progresso salvo; qualquer problema (storage bloqueado, JSON inválido) volta ao padrão. */
@@ -40,6 +45,7 @@ export function loadProgress(storage: Pick<Storage, 'getItem'> | null = safeStor
       expertBest,
       // Progresso salvo antes deste campo existir: um recorde já prova que houve partida.
       expertPlayed: data.expertPlayed === true || expertBest > 0,
+      ultimateCompleted: Array.isArray(data.ultimateCompleted) ? data.ultimateCompleted.filter((n) => Number.isInteger(n)) : [],
     };
   } catch {
     return defaultProgress();
@@ -92,4 +98,19 @@ export function markExpertPlayed(progress: Progress): Progress {
 
 export function recordExpert(progress: Progress, levelId: number): Progress {
   return levelId > progress.expertBest ? { ...progress, expertBest: levelId } : progress;
+}
+
+export function isUltimateUnlocked(progress: Progress): boolean {
+  return progress.expertBest >= ULTIMATE_UNLOCK_LEVEL;
+}
+
+export function markUltimateCompleted(progress: Progress, levelId: number): Progress {
+  if (progress.ultimateCompleted.includes(levelId)) return progress;
+  return { ...progress, ultimateCompleted: [...progress.ultimateCompleted, levelId].sort((a, b) => a - b) };
+}
+
+/** Maior fase liberada do Ultimate: a seguinte à maior concluída, respeitando o total. */
+export function highestUltimateUnlocked(progress: Progress, total: number): number {
+  const best = progress.ultimateCompleted.length ? Math.max(...progress.ultimateCompleted) : 0;
+  return Math.min(total, best + 1);
 }

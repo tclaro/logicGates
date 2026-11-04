@@ -40,15 +40,20 @@ export function initialInputs(level: LevelDef): InputState {
   return state;
 }
 
-/** Valor lógico de todos os nós (chaves e portas) para um estado das chaves. */
-export function evaluate(level: LevelDef, inputs: InputState, order = topoOrder(level)): NodeValues {
+/**
+ * Valor lógico de todos os nós (chaves e portas) para um estado das chaves.
+ * Portas em `empty` são encaixes vazios do modo Ultimate: não conduzem, saem 0.
+ */
+export function evaluate(level: LevelDef, inputs: InputState, order = topoOrder(level), empty?: ReadonlySet<string>): NodeValues {
   const values: NodeValues = {};
   for (const input of level.inputs) values[input.id] = inputs[input.id] ?? 0;
   for (const gate of order) {
-    values[gate.id] = applyGate(
-      gate.type,
-      gate.in.map((src) => values[src] as Bit),
-    );
+    values[gate.id] = empty?.has(gate.id)
+      ? 0
+      : applyGate(
+          gate.type,
+          gate.in.map((src) => values[src] as Bit),
+        );
   }
   return values;
 }
