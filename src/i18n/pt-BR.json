@@ -2,8 +2,10 @@
   "app.title": "Portas Lógicas",
   "app.subtitle": "Acenda a lâmpada ligando as chaves certas",
 
-  "menu.play": "Jogar",
+  "menu.beginner": "Modo Iniciante",
+  "menu.beginnerNew": "Comece pela fase 1",
   "menu.continue": "Continuar — fase {level}",
+  "menu.beginnerDone": "Todas concluídas",
   "menu.levels": "Fases",
   "menu.glossary": "Glossário",
   "menu.sound": "Efeitos sonoros",
@@ -49,6 +51,7 @@
   "win.levels": "Fases",
   "win.final.title": "Você é fera em portas lógicas!",
   "win.final.text": "Completou todas as {count} fases.",
+  "win.final.suggestExpert": "Você provou ser um excelente iniciante. Por que não tenta o Modo Expert?",
 
   "intro.newGate": "Nova porta",
   "intro.try": "Experimente",

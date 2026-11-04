@@ -12,6 +12,7 @@ import {
   isUnlocked,
   loadProgress,
   markCompleted,
+  markExpertPlayed,
   markIntroSeen,
   saveProgress,
 } from '../../src/storage/progress';
@@ -96,6 +97,20 @@ describe('progresso', () => {
     // Progresso salvo antes do modo Expert existir continua válido.
     const old = JSON.stringify({ version: 1, completed: [1], seenIntros: [], sound: true, music: true });
     expect(loadProgress({ getItem: () => old }).expertBest).toBe(0);
+    expect(loadProgress({ getItem: () => old }).expertPlayed).toBe(false);
+  });
+
+  it('modo Expert: marca quando o aluno já jogou, inclusive em progresso antigo com recorde', () => {
+    const p = defaultProgress();
+    expect(p.expertPlayed).toBe(false);
+    const played = markExpertPlayed(p);
+    expect(played.expertPlayed).toBe(true);
+    expect(markExpertPlayed(played)).toBe(played);
+    const store = new Map<string, string>();
+    saveProgress(played, { setItem: (k, v) => store.set(k, v) });
+    expect(loadProgress({ getItem: (k) => store.get(k) ?? null }).expertPlayed).toBe(true);
+    const withBest = JSON.stringify({ version: 1, completed: [10], seenIntros: [], sound: true, music: false, expertBest: 4 });
+    expect(loadProgress({ getItem: () => withBest }).expertPlayed).toBe(true);
   });
 
   it('modo Expert: o fim de jogo volta ao início do capítulo', () => {

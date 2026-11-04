@@ -146,6 +146,11 @@ h1, h2 { margin: 0; }
 }
 .menu-subtitle { color: var(--muted); margin: 8px 0 0; }
 .menu-buttons { display: grid; gap: 12px; width: min(360px, 100%); }
+.menu-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; }
+.mode-btn { justify-content: flex-start; text-align: left; padding-inline: 16px; }
+.mode-icon { display: grid; }
+.mode-text { display: grid; line-height: 1.2; min-width: 0; }
+.mode-text small { font-size: 0.8rem; font-weight: 600; opacity: 0.75; }
 .menu-toggles { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
 .toggle {
   display: inline-flex;

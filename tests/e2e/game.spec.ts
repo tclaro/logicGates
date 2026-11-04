@@ -43,12 +43,15 @@ async function solve(page: Page, level: number): Promise<void> {
   }
 }
 
-async function seedProgress(page: Page, completed: number[], seenIntros: string[] = []): Promise<void> {
+async function seedProgress(page: Page, completed: number[], seenIntros: string[] = [], extra: Record<string, unknown> = {}): Promise<void> {
   await page.addInitScript(
-    ([c, s]) => localStorage.setItem('portas-logicas:progress', JSON.stringify({ version: 1, completed: c, seenIntros: s, sound: false, music: false })),
-    [completed, seenIntros] as const,
+    ([c, s, e]) => localStorage.setItem('portas-logicas:progress', JSON.stringify({ version: 1, completed: c, seenIntros: s, sound: false, music: false, ...e })),
+    [completed, seenIntros, extra] as const,
   );
 }
+
+const ALL_GATES = ['AND', 'OR', 'NOT', 'NAND', 'NOR', 'XOR', 'XNOR'];
+const ALL_BUT_LAST = Array.from({ length: 35 }, (_, i) => i + 1);
 
 test('primeira jogada: introdução, fase 1, vitória e progresso salvo', async ({ page }) => {
   await page.goto('/');
@@ -76,6 +79,37 @@ test('primeira jogada: introdução, fase 1, vitória e progresso salvo', async 
 
   await page.reload();
   await expect(page.getByTestId('play')).toHaveText(/Continuar — fase 2/);
+});
+
+test('menu: Modo Iniciante e Fases lado a lado', async ({ page }) => {
+  await page.goto('/');
+  const play = page.getByTestId('play');
+  await expect(play).toContainText('Modo Iniciante');
+  await expect(play).toContainText('Comece pela fase 1');
+  const levels = page.getByRole('button', { name: 'Fases' });
+  // Espera a animação de entrada da tela terminar antes de medir.
+  await expect.poll(async () => Math.abs((await play.boundingBox())!.y - (await levels.boundingBox())!.y)).toBeLessThan(1);
+  const a = (await play.boundingBox())!;
+  const b = (await levels.boundingBox())!;
+  expect(a.x + a.width).toBeLessThanOrEqual(b.x);
+});
+
+test('última fase sem ter jogado o Expert convida para o modo Expert', async ({ page }) => {
+  await seedProgress(page, ALL_BUT_LAST, ALL_GATES);
+  await page.goto('/');
+  await page.getByTestId('play').click();
+  await waitForBoard(page, 36);
+  await solve(page, 36);
+  await expect(page.getByTestId('win-text')).toHaveText('Você provou ser um excelente iniciante. Por que não tenta o Modo Expert?');
+});
+
+test('última fase depois de jogar o Expert mantém o texto de sempre', async ({ page }) => {
+  await seedProgress(page, ALL_BUT_LAST, ALL_GATES, { expertPlayed: true });
+  await page.goto('/');
+  await page.getByTestId('play').click();
+  await waitForBoard(page, 36);
+  await solve(page, 36);
+  await expect(page.getByTestId('win-text')).toHaveText('Completou todas as 36 fases.');
 });
 
 test('reiniciar volta as chaves ao estado inicial', async ({ page }) => {
@@ -194,6 +228,7 @@ test('modo Expert: liberado na fase 10, energia escondida, vidas e fim de jogo',
   await expect(lit).toHaveCount(3);
   const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('portas-logicas:progress')!));
   expect(saved.expertBest).toBe(1);
+  expect(saved.expertPlayed).toBe(true);
 
   // Sair encerra a partida; o menu mostra o recorde e recomeça da fase 1.
   await page.getByRole('button', { name: 'Menu principal' }).click();

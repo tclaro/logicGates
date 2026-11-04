@@ -10,6 +10,8 @@ export interface Progress {
   music: boolean;
   /** Modo Expert: maior fase vencida. */
   expertBest: number;
+  /** Modo Expert: se o aluno já começou alguma partida. */
+  expertPlayed: boolean;
 }
 
 /** Fase do modo normal que libera o modo Expert ao ser concluída. */
@@ -18,7 +20,7 @@ export const EXPERT_UNLOCK_LEVEL = 10;
 const KEY = 'portas-logicas:progress';
 
 export function defaultProgress(): Progress {
-  return { version: 1, completed: [], seenIntros: [], sound: true, music: false, expertBest: 0 };
+  return { version: 1, completed: [], seenIntros: [], sound: true, music: false, expertBest: 0, expertPlayed: false };
 }
 
 /** Lê o progresso salvo; qualquer problema (storage bloqueado, JSON inválido) volta ao padrão. */
@@ -28,13 +30,16 @@ export function loadProgress(storage: Pick<Storage, 'getItem'> | null = safeStor
     if (!raw) return defaultProgress();
     const data = JSON.parse(raw) as Partial<Progress>;
     if (data.version !== 1) return defaultProgress();
+    const expertBest = Number.isInteger(data.expertBest) ? data.expertBest! : 0;
     return {
       version: 1,
       completed: Array.isArray(data.completed) ? data.completed.filter((n) => Number.isInteger(n)) : [],
       seenIntros: Array.isArray(data.seenIntros) ? data.seenIntros : [],
       sound: data.sound !== false,
       music: data.music === true,
-      expertBest: Number.isInteger(data.expertBest) ? data.expertBest! : 0,
+      expertBest,
+      // Progresso salvo antes deste campo existir: um recorde já prova que houve partida.
+      expertPlayed: data.expertPlayed === true || expertBest > 0,
     };
   } catch {
     return defaultProgress();
@@ -79,6 +84,10 @@ export function markIntroSeen(progress: Progress, gate: GateType): Progress {
 
 export function isExpertUnlocked(progress: Progress): boolean {
   return progress.completed.includes(EXPERT_UNLOCK_LEVEL);
+}
+
+export function markExpertPlayed(progress: Progress): Progress {
+  return progress.expertPlayed ? progress : { ...progress, expertPlayed: true };
 }
 
 export function recordExpert(progress: Progress, levelId: number): Progress {

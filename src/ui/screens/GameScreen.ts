@@ -12,6 +12,8 @@ export interface GameHooks {
   expert?: boolean;
   /** Modo Expert: fase onde a partida recomeça depois do fim de jogo. */
   retryLevel?: number;
+  /** Modo normal: ao concluir a última fase, convida para o modo Expert quem nunca o jogou. */
+  suggestExpert?: boolean;
   sound: boolean;
   music: boolean;
   onSound(on: boolean): void;
@@ -244,12 +246,13 @@ export class GameScreen implements Screen {
       return;
     }
     const last = this.hooks.isLast;
+    const finalText = this.hooks.suggestExpert ? t('win.final.suggestExpert') : t('win.final.text', { count: this.level.id });
     this.victory.replaceChildren(
       h(
         'div',
         { class: 'victory-card' },
         h('h2', { text: last ? t('win.final.title') : t('win.title') }),
-        h('p', { text: last ? t('win.final.text', { count: this.level.id }) : t('win.text', { level: this.level.id }) }),
+        h('p', { 'data-testid': 'win-text', text: last ? finalText : t('win.text', { level: this.level.id }) }),
         h(
           'div',
           { class: 'victory-actions' },

@@ -24,7 +24,6 @@ export class MenuScreen implements Screen {
   constructor(a: MenuActions) {
     const lamp = h('img', { class: 'menu-lamp', alt: '' });
     void lampImageUrls().then((urls) => (lamp.src = urls.on));
-    const playLabel = a.nextLevel === null ? t('menu.levels') : a.hasProgress ? t('menu.continue', { level: a.nextLevel }) : t('menu.play');
 
     this.el = h(
       'section',
@@ -39,14 +38,28 @@ export class MenuScreen implements Screen {
       h(
         'nav',
         { class: 'menu-buttons' },
-        h('button', { class: 'btn primary big', 'data-testid': 'play', html: `${ICONS.play} ${playLabel}`, onclick: a.nextLevel === null ? a.onLevels : a.onPlay }),
-        h('button', { class: 'btn big', html: `${ICONS.grid} ${t('menu.levels')}`, onclick: a.onLevels }),
+        h(
+          'div',
+          { class: 'menu-row' },
+          beginnerButton(a),
+          h('button', { class: 'btn big', html: `${ICONS.grid} ${t('menu.levels')}`, onclick: a.onLevels }),
+        ),
         expertButton(a),
         h('button', { class: 'btn big', html: `${ICONS.book} ${t('menu.glossary')}`, onclick: a.onGlossary }),
       ),
       h('div', { class: 'menu-toggles' }, toggleButton('sound', t('menu.sound'), a.sound, a.onSound), toggleButton('music', t('menu.music'), a.music, a.onMusic)),
     );
   }
+}
+
+function beginnerButton(a: MenuActions): HTMLButtonElement {
+  const detail = a.nextLevel === null ? t('menu.beginnerDone') : a.hasProgress ? t('menu.continue', { level: a.nextLevel }) : t('menu.beginnerNew');
+  return h(
+    'button',
+    { class: 'btn primary big mode-btn', 'data-testid': 'play', onclick: a.nextLevel === null ? a.onLevels : a.onPlay },
+    h('span', { class: 'mode-icon', html: ICONS.unlock }),
+    h('span', { class: 'mode-text' }, h('span', { text: t('menu.beginner') }), h('small', { text: detail })),
+  );
 }
 
 function expertButton(a: MenuActions): HTMLButtonElement {

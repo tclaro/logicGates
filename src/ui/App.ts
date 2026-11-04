@@ -10,6 +10,7 @@ import {
   isUnlocked,
   loadProgress,
   markCompleted,
+  markExpertPlayed,
   markIntroSeen,
   recordExpert,
   saveProgress,
@@ -180,7 +181,7 @@ export class App {
   playLevel(id: number): void {
     const level = getLevel(id);
     if (!level) return;
-    this.show(new GameScreen(this.stage, level, this.baseHooks(id)));
+    this.show(new GameScreen(this.stage, level, { ...this.baseHooks(id), suggestExpert: !this.progress.expertPlayed }));
   }
 
   /**
@@ -189,6 +190,7 @@ export class App {
    */
   startExpert(id: number): void {
     if (!isExpertUnlocked(this.progress) || !getLevel(id)) return;
+    this.setProgress(markExpertPlayed(this.progress));
     const gate = introGateFor(id);
     if (gate && !this.progress.seenIntros.includes(gate)) {
       this.setProgress(markIntroSeen(this.progress, gate));
