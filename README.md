@@ -9,8 +9,8 @@ Um jogo de navegador gratuito que ensina portas lógicas para quem está começa
 [**▶ Jogar agora**](https://tclaro.github.io/logicGates/)
 
 ![Deploy](https://github.com/tclaro/logicGates/actions/workflows/deploy.yml/badge.svg)
-![Fases](https://img.shields.io/badge/fases-36-18d8ff)
-![Modos](https://img.shields.io/badge/modos-normal%20%C2%B7%20Expert%20%C2%B7%20Ultimate-ff9a3c)
+![Fases](https://img.shields.io/badge/fases-51-18d8ff)
+![Dificuldades](https://img.shields.io/badge/dificuldades-f%C3%A1cil%20%C2%B7%20m%C3%A9dio%20%C2%B7%20dif%C3%ADcil-ff9a3c)
 ![Portas](https://img.shields.io/badge/portas-AND%20%C2%B7%20OR%20%C2%B7%20NOT%20%C2%B7%20NAND%20%C2%B7%20NOR%20%C2%B7%20XOR%20%C2%B7%20XNOR-ffd760)
 ![Idioma](https://img.shields.io/badge/idioma-pt--BR-0c4031)
 
@@ -30,9 +30,9 @@ O jogo foi pensado para:
 
 - **Iniciantes de qualquer idade:** de crianças curiosas a estudantes do primeiro semestre de computação.
 - **Aula e estudo individual:** o professor pode projetar o jogo em sala; o aluno pode jogar sozinho no celular.
-- **Aprender sem medo de errar:** no modo normal não há pontuação, tempo nem vidas. Errar é só mudar uma chave de volta.
-- **Desafiar quem já aprendeu:** o [modo Expert](#-modo-expert) esconde a energia e cobra que o aluno preveja o resultado antes de testar.
-- **Inverter o problema:** no [modo Ultimate](#-modo-ultimate) as chaves são fixas e o aluno escolhe as portas, montando o circuito que acende a lâmpada.
+- **Aprender sem medo de errar:** nas fases fáceis a energia aparece em cada trilha, e a barra de energia dá 50% de cliques a mais que o necessário. Fim de jogo nunca faz voltar fases.
+- **Desafiar quem já aprendeu:** as [fases médias](#-fases-médias) escondem a energia e cobram que o aluno preveja o resultado antes de testar.
+- **Inverter o problema:** nas [fases difíceis](#-fases-difíceis) as chaves são fixas e o aluno escolhe as portas, montando o circuito que acende a lâmpada.
 
 ### O que o aluno aprende
 
@@ -43,7 +43,8 @@ O jogo foi pensado para:
 | Raciocinar sobre circuitos com várias portas encadeadas | As fases crescem de 1 para 11 portas, com até 5 níveis de profundidade |
 | Ler as notações usadas em matemática e programação | Cada porta é apresentada também como `A ∧ B`, `A && B`, `¬A`, `A ⊕ B`, `A ^ B`… |
 | Pensar "de trás para frente", partindo do resultado desejado | Para acender a lâmpada, é preciso descobrir o que cada porta precisa receber |
-| Simular um circuito de cabeça, sem tentativa e erro | No modo Expert a energia fica escondida e cada palpite errado custa uma vida |
+| Simular um circuito de cabeça, sem tentativa e erro | Nas fases médias a energia fica escondida e cada palpite errado custa uma vida |
+| Escolher a porta certa para cada função | Nas fases difíceis o aluno monta o circuito com as peças disponíveis |
 
 ## 🧭 Como funciona
 
@@ -60,100 +61,87 @@ O jogo foi pensado para:
 
 </div>
 
-## ⚡ Modo Expert
+## 🎚️ Três dificuldades numa só sequência
 
-No modo normal, o aluno pode testar chaves até a lâmpada acender, vendo a energia em cada trilha. O modo Expert tira essa muleta: **a energia fica escondida e o aluno precisa simular o circuito de cabeça** antes de testar. É a forma de verificar se as portas foram realmente entendidas, e não só descobertas por tentativa.
+O jogo tem uma única sequência de 51 fases. Cada fase tem uma dificuldade, indicada por um rótulo no canto superior esquerdo da placa e por uma bolinha colorida na tela de seleção:
+
+| Dificuldade | O que muda |
+|---|---|
+| 🟢 **Fácil** | O circuito está pronto e a energia aparece em cada trilha enquanto o aluno mexe nas chaves; cada toque gasta a barra de energia |
+| 🟡 **Médio** | O mesmo tipo de circuito, mas a energia fica escondida até o aluno tocar em Ativar |
+| 🟣 **Difícil** | As chaves são fixas e o aluno monta o circuito levando as peças até os encaixes |
+
+As dificuldades se alternam desde o começo, para que ninguém passe o jogo inteiro só no fácil. Portas novas são sempre apresentadas numa fase fácil.
+
+### Vidas e fim de jogo
+
+- **3 lâmpadas de vida** ficam no canto superior direito da placa, em todas as fases. Elas **passam de uma fase para a outra**: vencer uma fase não as renova.
+- **Fase fácil:** embaixo das lâmpadas há uma **barra de energia** que diminui a cada toque numa chave. Ela começa com 50% a mais que o número mínimo de cliques da fase, arredondando para cima (mínimo 3 → 5 toques). Se a barra zerar sem a lâmpada acender, uma lâmpada de vida estoura e a barra enche de novo. Reiniciar a fase ou sair e voltar não enchem a barra.
+- **Fases difíceis com energia visível** (as primeiras, sem botão Ativar): a mesma barra, gasta a cada peça encaixada. O mínimo de jogadas é o número de encaixes (1, 2 e 3 encaixes → 2, 3 e 5 jogadas). Devolver uma peça à bandeja não gasta.
+- **Fases com energia escondida** (médias e as demais difíceis): cada ativação errada estoura uma lâmpada.
+- **Fim de jogo:** quando a última lâmpada estoura, as 3 se renovam e o aluno **recomeça exatamente da fase em que estava**.
+- Vidas e barra ficam salvas no aparelho: recarregar a página não as renova.
 
 <div align="center">
 
-| Aviso ao liberar o modo | Um palpite errado queima uma vida |
-|:---:|:---:|
-| <img src="docs/screenshots/expert-liberado.png" width="240" alt="Faixa diagonal Modo Expert liberado sobre a placa da fase 10"> | <img src="docs/screenshots/expert.png" width="240" alt="Fase 12 no modo Expert com uma das três lâmpadas de vida queimada"> |
+| Seleção de fases | Fase média | Fase difícil |
+|:---:|:---:|:---:|
+| <img src="docs/screenshots/fases.png" width="240" alt="Grade de fases com uma bolinha verde, amarela ou lilás indicando a dificuldade de cada uma"> | <img src="docs/screenshots/medio.png" width="240" alt="Fase 14, média, com uma das três lâmpadas de vida queimada"> | <img src="docs/screenshots/dificil.png" width="240" alt="Fase 20, difícil, com uma peça encaixada e outra escolhida na bandeja"> |
 
 </div>
 
-### Como liberar
+## ⚡ Fases médias
 
-O modo Expert aparece no menu principal com um cadeado até o aluno **concluir a fase 10** do modo normal. Nesse ponto ele já conhece AND, OR e NOT. Ao vencer a fase 10 pela primeira vez, uma faixa amarela e preta atravessa a placa na diagonal anunciando "Modo Expert liberado!".
-
-### Como se joga
+Nas fases fáceis o aluno pode testar chaves até a lâmpada acender, vendo a energia em cada trilha. As médias tiram essa muleta: **a energia fica escondida e o aluno precisa simular o circuito de cabeça** antes de testar. É a forma de verificar se as portas foram realmente entendidas, e não só descobertas por tentativa.
 
 1. **As trilhas ficam apagadas.** Mexer nas chaves não mostra nada: o aluno vê o desenho do circuito, mas não os valores.
-2. **O aluno monta as chaves e toca em Ativar** (ou aperta `Enter`). Só então a energia corre pela placa, porta por porta, como no modo normal.
-3. **Se a lâmpada acender**, a fase está vencida e o aluno segue para a próxima.
-4. **Se não acender**, uma das **3 lâmpadas de vida** (no canto superior direito da placa) queima. A energia continua visível, para o aluno entender onde errou. Para tentar de novo, ele muda alguma chave, o que apaga a placa outra vez, e toca em Ativar.
-5. **Se as 3 lâmpadas queimarem**, a partida acaba e o aluno recomeça do **início do capítulo** atual, ou seja, da fase em que a última porta nova foi apresentada (1, 2, 6, 11, 16, 21 ou 27).
+2. **O aluno monta as chaves e toca em Ativar** (ou aperta `Enter`). Só então a energia corre pela placa, porta por porta.
+3. **Se a lâmpada acender**, a fase está vencida.
+4. **Se não acender**, uma das [lâmpadas de vida](#vidas-e-fim-de-jogo) queima. A energia continua visível, para o aluno entender onde errou. Para tentar de novo, ele muda alguma chave, o que apaga a placa outra vez, e toca em Ativar.
 
-### Regras
+Tocar numa porta mostra a tabela verdade **sem** destacar a linha atual, porque isso revelaria os valores escondidos.
 
-| Regra | Por quê |
-|---|---|
-| Cada partida começa na fase 1 e as fases seguem em sequência, sem escolha | O modo é uma prova do percurso inteiro |
-| As 3 vidas se renovam a cada fase vencida | Um erro numa fase não pesa sobre as seguintes |
-| Sair para o menu encerra a partida | A próxima começa de novo na fase 1 |
-| Tocar numa porta mostra a tabela verdade **sem** destacar a linha atual | Destacar a linha revelaria os valores que o modo esconde |
-| A apresentação de uma porta só aparece se o aluno ainda não a viu | Quem chegou até aqui já passou pelas apresentações no modo normal |
-| O menu mostra o recorde: a fase mais alta vencida no modo Expert | Dá ao aluno uma meta para superar |
+## 🧩 Fases difíceis
 
-## 🧩 Modo Ultimate
-
-Nos outros modos o circuito está pronto e o aluno descobre as chaves. No Ultimate é o contrário: **as chaves são fixas, a fiação também, e o aluno escolhe que porta vai em cada encaixe** para a lâmpada acender.
-
-### Como liberar
-
-O modo Ultimate aparece no menu com um cadeado até o aluno **vencer a fase 10 do modo Expert**. Ao vencê-la pela primeira vez, a faixa diagonal anuncia "Modo Ultimate liberado!". Tocar num modo ainda bloqueado mostra uma explicação do que ele é e de como liberá-lo.
-
-### Como se joga
+Nas outras fases o circuito está pronto e o aluno descobre as chaves. Nas difíceis é o contrário: **as chaves são fixas, a fiação também, e o aluno escolhe que porta vai em cada encaixe** para a lâmpada acender.
 
 1. **A placa traz encaixes tracejados** no lugar de algumas portas. Os pinos de cada encaixe dizem quantas entradas ele tem: a NOT só cabe nos de um pino, as demais nos de dois.
-2. **A bandeja embaixo mostra as peças disponíveis**, com a quantidade de cada uma. O aluno arrasta a peça até o encaixe, ou toca na peça e depois no encaixe. Tocar numa peça já encaixada a devolve à bandeja.
-3. **Nas primeiras fases a energia é visível**: a lâmpada acende assim que o circuito montado está certo.
-4. **A partir da fase 4 a energia fica escondida**, como no Expert: com todos os encaixes preenchidos o aluno toca em Ativar, e cada montagem errada queima uma das 3 lâmpadas de vida. Para tentar de novo, ele troca alguma peça.
+2. **A bandeja na lateral esquerda mostra as peças disponíveis**, com a quantidade de cada uma. Ela se posiciona sozinha onde não cobre nenhuma parte do circuito. O aluno arrasta a peça até o encaixe, ou toca na peça e depois no encaixe. Tocar numa peça já encaixada a devolve à bandeja.
+3. **Nas primeiras fases difíceis a energia é visível**: a lâmpada acende assim que o circuito montado está certo, e cada peça encaixada gasta a [barra de energia](#vidas-e-fim-de-jogo).
+4. **Depois a energia fica escondida**, como nas médias: com todos os encaixes preenchidos o aluno toca em Ativar, e cada montagem errada queima uma lâmpada de vida. Para tentar de novo, ele troca alguma peça.
 5. **Algumas fases têm uma chave com relógio**, que alterna sozinha entre 0 e 1 depois da ativação. A lâmpada precisa ficar acesa nos dois valores, ou seja, o circuito tem que funcionar qualquer que seja essa entrada.
-6. **Se as 3 lâmpadas queimarem**, as peças voltam para a bandeja e a fase recomeça com as vidas renovadas.
-
-### Regras
+6. **No fim de jogo**, as peças voltam para a bandeja e a fase recomeça com as 3 lâmpadas renovadas.
 
 | Regra | Por quê |
 |---|---|
-| As fases são liberadas em ordem, com progresso salvo e tela de seleção própria | O modo tem uma progressão própria, independente dos outros |
 | As peças são contadas | Restringe as escolhas e cria desafios como "use só estas portas" |
 | Qualquer montagem certa vence a fase | O aluno é avaliado pelo comportamento do circuito, não por adivinhar a resposta gravada |
 | No máximo uma chave com relógio por fase | Mantém a verificação curta: dois estados, alternados três vezes |
-| Uma peça nova aparece com a apresentação da porta, se o aluno ainda não a viu | O Ultimate pode chegar a portas que o aluno não viu no modo normal |
-
 
 ## 🪜 Progressão das fases
 
-As portas são apresentadas uma de cada vez. Depois de cada porta nova, vêm fases que a misturam com as anteriores.
+As portas são apresentadas uma de cada vez, sempre numa fase fácil. Depois de cada porta nova vêm fases que a misturam com as anteriores, alternando as três dificuldades.
 
-| Fases | Conteúdo | Ideia central |
+| Fases | Porta nova | Sequência (F = fácil, M = médio, D = difícil) |
 |:---:|---|---|
-| 1 | **AND** (E) | Tudo precisa estar ligado |
-| 2 | **OR** (OU) | Basta uma entrada ligada |
-| 3–5 | AND + OR | Combinar condições |
-| 6 | **NOT** (NÃO) | Inverter um sinal |
-| 7–10 | AND, OR e NOT | Às vezes é preciso **desligar** para acender |
-| 11 | **NAND** | A inversão de uma AND |
-| 12–15 | Misturas com NAND | |
-| 16 | **NOR** | A inversão de uma OR |
-| 17–20 | Misturas com NOR | |
-| 21 | **XOR** (OU exclusivo) | Entradas **diferentes** |
-| 22–26 | Misturas com XOR | Um mesmo sinal alimentando várias portas |
-| 27 | **XNOR** | Entradas **iguais** |
-| 28–32 | Misturas com XNOR | |
-| 33–36 | Desafios finais | Até 8 chaves, 11 portas e 5 níveis de profundidade |
+| 1–3 | **AND** (E) na 1, **OR** (OU) na 2 | F F M |
+| 4–15 | **NOT** (NÃO) | F M D F D F M D F D M D |
+| 16–24 | **NAND** | F M D F D M D F D |
+| 25–31 | **NOR** | F M F D M F D |
+| 32–39 | **XOR** (OU exclusivo) | F M D F M D F M |
+| 40–51 | **XNOR** | F M D F M F M F M F M D |
+
+A ordem fica em `src/levels/campaign.ts`. As fases fáceis e médias vêm de `src/levels/data/` e as difíceis de `src/levels/ultimate/`, cada uma usada uma única vez.
 
 A dificuldade é verificada automaticamente: cada fase passa por um validador que confirma que ela tem solução, que nenhuma porta aparece antes de ser apresentada e calcula o **número mínimo de cliques** para resolvê-la.
 
 ## 👩‍🏫 Para professores
 
 - **Sem cadastro, sem instalação:** basta abrir o link no navegador do computador, do tablet ou do celular.
-- **Progresso salvo no próprio aparelho:** as fases são liberadas em sequência, e as já vencidas podem ser jogadas de novo.
+- **Progresso salvo no próprio aparelho:** as fases são liberadas em sequência, e as já vencidas podem ser jogadas de novo. Quem jogou a versão com três modos separados continua de onde parou: cada fase conta como vencida se foi vencida no modo que corresponde à dificuldade dela.
 - **Glossário sempre à mão:** o aluno pode rever a explicação de qualquer porta que já apareceu.
 - **Som ajustável a qualquer momento:** durante a fase, o botão de alto-falante liga e desliga os efeitos e a música, e o botão da casinha volta ao menu principal.
-- **Modo Expert para revisão:** sem ver a energia, o aluno precisa prever o resultado do circuito antes de ativá-lo. Funciona bem como avaliação ou desafio em sala: o recorde de cada aluno aparece no menu. Veja [Modo Expert](#-modo-expert).
-- **Atalhos de teclado** para usar com projetor: teclas `1` a `8` alternam as chaves, `R` reinicia a fase, `Enter` ativa no modo Expert e `Esc` fecha a tabela verdade.
+- **Atalhos de teclado** para usar com projetor: teclas `1` a `8` alternam as chaves, `R` reinicia a fase, `Enter` ativa nas fases com energia escondida e `Esc` fecha a tabela verdade.
 - **Editor de fases:** quem rodar o projeto localmente pode criar fases novas com um editor visual (veja abaixo).
 
 ---
@@ -178,9 +166,9 @@ npm run test:e2e
 npm run build
 ```
 
-- `npm run dev` abre o jogo em `http://localhost:5173`. Nesse modo, `?level=N` abre uma fase direto.
+- `npm run dev` abre o jogo em `http://localhost:5173`. Nesse modo, `?level=N` abre direto a fase N da sequência.
 - `npm test` roda os testes de unidade: lógica, solver, validador, layout e propagação.
-- `npm run test:e2e` roda os testes no navegador (usa o Chrome instalado) e joga as 36 fases.
+- `npm run test:e2e` roda os testes no navegador (usa o Chrome instalado) e joga as 51 fases.
 - `npm run build` gera o site estático em `dist/`. Cada push no `master` publica no GitHub Pages automaticamente.
 
 ### Estrutura
@@ -188,14 +176,15 @@ npm run build
 | Pasta | Conteúdo |
 |---|---|
 | `src/core` | Portas, avaliação do circuito, solver e validador de fases |
-| `src/levels/data` | Uma fase por arquivo (`NN.json`) |
-| `src/levels/chapters.ts` | Em que fase cada porta é apresentada |
+| `src/levels/campaign.ts` | A sequência única: dificuldade e fase de origem de cada fase |
+| `src/levels/data` | Fases com circuito pronto, usadas nas fáceis e médias (`NN.json`) |
+| `src/levels/chapters.ts` | Ordem das portas nas fases de `data/`, usada pelo editor |
 | `src/layout` | Layout automático em camadas e roteamento das trilhas em 0°, 45° e 90° |
 | `src/render` | A placa: trilhas, brilho, portas, lâmpada, chaves e a propagação animada |
-| `src/core/ultimate.ts` | Modo Ultimate: encaixes, estoque de peças, chave com relógio, solver de montagens e validador |
-| `src/levels/ultimate` | Fases do modo Ultimate (`NN.json`) |
-| `src/ui` | Menu, seleção de fases, introduções, glossário, HUD, tabela verdade, modo Expert (vidas e botão Ativar) e bandeja do Ultimate |
-| `src/storage/progress.ts` | Progresso salvo no `localStorage`: fases concluídas, portas vistas, som, recorde do Expert e fases do Ultimate |
+| `src/core/ultimate.ts` | Fases difíceis: encaixes, estoque de peças, chave com relógio, solver de montagens e validador |
+| `src/levels/ultimate` | Fases de montagem, usadas nas difíceis (`NN.json`) |
+| `src/ui` | Menu, seleção de fases, introduções, glossário, HUD, tabela verdade, rótulo da dificuldade, vidas, botão Ativar e bandeja de peças |
+| `src/storage/progress.ts` | Progresso salvo no `localStorage`: fases concluídas, portas vistas e som, com a conversão do progresso da versão de três modos |
 | `src/i18n/pt-BR.json` | Todos os textos do jogo, prontos para tradução |
 | `editor/` | Editor visual de fases |
 
@@ -217,13 +206,13 @@ Uma fase é um JSON simples:
 }
 ```
 
-Os testes garantem que toda fase:
+Uma fase nova só entra no jogo depois de ser colocada na sequência de `src/levels/campaign.ts`. Os testes garantem que toda fase:
 - começa com a lâmpada apagada e tem solução;
 - tem todas as chaves e portas ligadas à lâmpada;
 - só usa portas já apresentadas;
 - tem layout sem portas sobrepostas e sem trilhas atravessando portas.
 
-#### Fases do modo Ultimate
+#### Fases de montagem (difíceis)
 
 Ficam em `src/levels/ultimate/`. O formato é o mesmo, com quatro campos a mais:
 
@@ -245,10 +234,10 @@ Ficam em `src/levels/ultimate/`. O formato é o mesmo, com quatro campos a mais:
 
 - `slots`: portas que começam vazias. O `type` gravado nelas é a solução de referência.
 - `pieces`: quantas peças de cada porta a bandeja oferece.
-- `hidden`: energia escondida até Ativar, com 3 vidas.
+- `hidden`: energia escondida até Ativar; cada montagem errada custa uma vida.
 - `clock`: chave que alterna sozinha; exige `hidden`.
 
-Os testes garantem que toda fase do Ultimate tem solução, que a solução de referência é válida, que a lâmpada não acende com os encaixes vazios, que há no máximo 2 montagens certas e que a fase que estreia uma peça exige essa peça em toda solução.
+Os testes garantem que toda fase de montagem tem solução, que a solução de referência é válida, que a lâmpada não acende com os encaixes vazios, que há no máximo 2 montagens certas e que a fase que estreia uma peça exige essa peça em toda solução.
 
 Para ver as estatísticas de dificuldade de cada fase, rode este comando:
 
@@ -273,12 +262,12 @@ Os sons e a música já estão incluídos; a arte da placa ainda é desenhada po
 | Arquivo | Quando toca |
 |---|---|
 | `switch_on.mp3` / `switch_off.mp3` | Chave ligada / desligada |
-| `energize.mp3` | Modo Expert: botão Ativar |
+| `energize.mp3` | Botão Ativar |
 | `lamp_on.mp3` | Lâmpada acende (toda fase vencida) |
-| `win.mp3` | Última fase concluída, em qualquer modo |
+| `win.mp3` | Última fase concluída |
 | `ui_click.mp3` | Botões das telas |
-| `burn.mp3` | Modo Expert: uma lâmpada de vida queima |
-| `game_over.mp3` | Modo Expert: fim de jogo |
+| `burn.mp3` | Uma lâmpada de vida queima |
+| `game_over.mp3` | Fim de jogo |
 | `music.mp3` | Música de fundo, em loop |
 
 <img src="https://tclaro.goatcounter.com/count?p=/github/logicGates&t=README%20logicGates" alt="" width="1" height="1">

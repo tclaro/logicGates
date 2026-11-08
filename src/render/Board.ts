@@ -21,22 +21,22 @@ export interface BoardCallbacks {
   onGateChange?(gateId: string, value: Bit): void;
   /** Editor: porta arrastada para uma nova posição horizontal. */
   onGateDrag?(gateId: string, x: number): void;
-  /** Modo Expert: a energia ligada por activate() terminou de correr. */
+  /** Energia escondida: a energia ligada por activate() terminou de correr. */
   onActivated?(lampOn: boolean): void;
-  /** Modo Ultimate: toque num encaixe. */
+  /** Fase de montagem: toque num encaixe. */
   onSlotTap?(slotId: string): void;
 }
 
 export interface BoardOptions {
   /** Permite arrastar portas na horizontal (editor). */
   editable?: boolean;
-  /** Modo Expert: a energia fica escondida até activate(). */
+  /** Energia escondida até activate() (fases médias e parte das difíceis). */
   hidden?: boolean;
-  /** Modo Ultimate: portas que começam como encaixes vazios. */
+  /** Fase de montagem: portas que começam como encaixes vazios. */
   slots?: readonly string[];
-  /** Modo Ultimate: as chaves não respondem ao toque. */
+  /** Fase de montagem: as chaves não respondem ao toque. */
   fixedInputs?: boolean;
-  /** Modo Ultimate: chave que alterna sozinha durante a ativação. */
+  /** Fase de montagem: chave que alterna sozinha durante a ativação. */
   clock?: string;
 }
 
@@ -56,7 +56,7 @@ function proceduralBoard(seed: number): Texture {
 
 /** Placa de uma fase: desenha o circuito, recebe toques e anima a energia. */
 export class Board extends Container {
-  /** A fase em jogo; no Ultimate é uma cópia, com o tipo das peças colocadas nos encaixes. */
+  /** A fase em jogo; na fase de montagem é uma cópia, com o tipo das peças colocadas nos encaixes. */
   readonly level: LevelDef;
   readonly layout: BoardLayout;
   private readonly prop: Propagation;
@@ -76,7 +76,7 @@ export class Board extends Container {
   private dragging: { view: GateView; dx: number } | null = null;
   /** Quando true, as chaves não respondem (ex.: depois da vitória). */
   locked = false;
-  /** Modo Expert: a energia da última ativação está à mostra (até mexer numa chave). */
+  /** Energia escondida: a energia da última ativação está à mostra (até mexer numa chave). */
   revealed = false;
   private readonly hidden: boolean;
   private energizing = false;
@@ -175,13 +175,13 @@ export class Board extends Container {
     return evaluate(this.level, this.inputs, undefined, this.empty);
   }
 
-  /** Modo Ultimate: peça em cada encaixe (null = vazio). */
+  /** Fase de montagem: peça em cada encaixe (null = vazio). */
   get slotFill(): Record<string, GateType | null> {
     return Object.fromEntries([...this.slotViews].map(([id, view]) => [id, view.filled]));
   }
 
   /**
-   * Modo Ultimate: põe uma peça no encaixe ou o esvazia. Com a energia visível, a mudança
+   * Fase de montagem: põe uma peça no encaixe ou o esvazia. Com a energia visível, a mudança
    * corre pelas trilhas; com ela escondida, mexer depois de uma ativação apaga a placa.
    */
   setSlot(slotId: string, type: GateType | null): void {
@@ -254,7 +254,7 @@ export class Board extends Container {
     if (this.hidden) this.darken();
   }
 
-  /** Modo Expert: liga a energia com as chaves atuais; onActivated avisa quando ela terminar de correr. */
+  /** Energia escondida: liga a energia com as chaves atuais; onActivated avisa quando ela terminar de correr. */
   activate(): void {
     if (!this.hidden || this.locked || this.energizing) return;
     this.darken();

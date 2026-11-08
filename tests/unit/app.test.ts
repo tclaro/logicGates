@@ -1,21 +1,25 @@
 import { describe, expect, it } from 'vitest';
 import { GATE_TYPES } from '../../src/core/logic';
 import { availableKeys, GATE_NOTATIONS, t } from '../../src/i18n/i18n';
-import { chapterStart, gatesInIntroOrder } from '../../src/levels/chapters';
+import { gatesInIntroOrder } from '../../src/levels/chapters';
 import { gateShape, gateSvg, toSvgPath } from '../../src/render/gateShapes';
 import {
   defaultProgress,
-  EXPERT_UNLOCK_LEVEL,
-  isExpertUnlocked,
-  recordExpert,
+  energyCapacity,
   highestUnlocked,
   isUnlocked,
   loadProgress,
+  loseLife,
   markCompleted,
-  markExpertPlayed,
   markIntroSeen,
+  MAX_LIVES,
+  migrateV1,
   saveProgress,
 } from '../../src/storage/progress';
+import { solve } from '../../src/core/solver';
+import { CAMPAIGN } from '../../src/levels';
+import type { UltimateLevelDef } from '../../src/core/types';
+import { CAMPAIGN_STEPS } from '../../src/levels/campaign';
 
 describe('i18n', () => {
   it('substitui parâmetros e sinaliza chaves ausentes', () => {
@@ -50,7 +54,7 @@ describe('progresso', () => {
     const store = memory();
     expect(defaultProgress().music).toBe(false);
     expect(loadProgress(store).music).toBe(false);
-    store.setItem('portas-logicas:progress', JSON.stringify({ version: 1, completed: [], seenIntros: [] }));
+    store.setItem('portas-logicas:progress', JSON.stringify({ version: 2, completed: [], seenIntros: [] }));
     expect(loadProgress(store).music).toBe(false);
     saveProgress({ ...defaultProgress(), music: true }, store);
     expect(loadProgress(store).music).toBe(true);
@@ -68,6 +72,7 @@ describe('progresso', () => {
     expect(loadProgress(broken)).toEqual(defaultProgress());
     expect(() => saveProgress(defaultProgress(), broken)).not.toThrow();
     expect(loadProgress({ getItem: () => '{nope' })).toEqual(defaultProgress());
+    expect(loadProgress({ getItem: () => '{"version":3}' })).toEqual(defaultProgress());
     expect(loadProgress({ getItem: () => '{"version":2}' })).toEqual(defaultProgress());
     expect(loadProgress(null)).toEqual(defaultProgress());
   });
@@ -84,37 +89,66 @@ describe('progresso', () => {
     expect(markCompleted(p, 1)).toBe(p);
   });
 
-  it('modo Expert: libera ao concluir a fase 10 e guarda o recorde', () => {
+  it('vidas: passam de uma fase para a outra e o fim de jogo renova as 3', () => {
     let p = defaultProgress();
-    expect(p.expertBest).toBe(0);
-    for (let id = 1; id < EXPERT_UNLOCK_LEVEL; id++) p = markCompleted(p, id);
-    expect(isExpertUnlocked(p)).toBe(false);
-    p = markCompleted(p, EXPERT_UNLOCK_LEVEL);
-    expect(isExpertUnlocked(p)).toBe(true);
-    p = recordExpert(p, 5);
-    expect(recordExpert(p, 3)).toBe(p);
-    expect(recordExpert(p, 7).expertBest).toBe(7);
-    // Progresso salvo antes do modo Expert existir continua válido.
-    const old = JSON.stringify({ version: 1, completed: [1], seenIntros: [], sound: true, music: true });
-    expect(loadProgress({ getItem: () => old }).expertBest).toBe(0);
-    expect(loadProgress({ getItem: () => old }).expertPlayed).toBe(false);
-  });
+    expect(p.lives).toBe(MAX_LIVES);
+    p = { ...p, energy: { level: 4, left: 1 } };
+    let r = loseLife(p);
+    expect([r.progress.lives, r.gameOver]).toEqual([2, false]);
+    expect(r.progress.energy).toEqual({ level: 4, left: 1 });
+    r = loseLife(loseLife(r.progress).progress);
+    expect([r.progress.lives, r.gameOver, r.progress.energy]).toEqual([MAX_LIVES, true, null]);
 
-  it('modo Expert: marca quando o aluno já jogou, inclusive em progresso antigo com recorde', () => {
-    const p = defaultProgress();
-    expect(p.expertPlayed).toBe(false);
-    const played = markExpertPlayed(p);
-    expect(played.expertPlayed).toBe(true);
-    expect(markExpertPlayed(played)).toBe(played);
+    // Vidas e barra sobrevivem a recarregar a página; valores estranhos voltam ao padrão.
     const store = new Map<string, string>();
-    saveProgress(played, { setItem: (k, v) => store.set(k, v) });
-    expect(loadProgress({ getItem: (k) => store.get(k) ?? null }).expertPlayed).toBe(true);
-    const withBest = JSON.stringify({ version: 1, completed: [10], seenIntros: [], sound: true, music: false, expertBest: 4 });
-    expect(loadProgress({ getItem: () => withBest }).expertPlayed).toBe(true);
+    saveProgress({ ...defaultProgress(), lives: 1, energy: { level: 7, left: 2 } }, { setItem: (k, v) => store.set(k, v) });
+    const loaded = loadProgress({ getItem: (k) => store.get(k) ?? null });
+    expect([loaded.lives, loaded.energy]).toEqual([1, { level: 7, left: 2 }]);
+    for (const lives of [0, -1, 4, 1.5, 'x']) {
+      const raw = JSON.stringify({ version: 2, completed: [], seenIntros: [], lives, energy: { level: 'a', left: 1 } });
+      expect(loadProgress({ getItem: () => raw })).toMatchObject({ lives: MAX_LIVES, energy: null });
+    }
   });
 
-  it('modo Expert: o fim de jogo volta ao início do capítulo', () => {
-    expect([1, 2, 3, 5, 6, 10, 11, 15, 16, 20, 21, 26, 27, 36].map(chapterStart)).toEqual([1, 2, 2, 2, 6, 6, 11, 11, 16, 16, 21, 21, 27, 27]);
+  it('barra de energia: 50% acima do mínimo de cliques, arredondando para cima', () => {
+    expect([1, 2, 3, 4, 5, 7].map(energyCapacity)).toEqual([2, 3, 5, 6, 8, 11]);
+    // Difíceis sem "Ativar" usam a barra por peça encaixada: 1, 2 e 3 encaixes → 2, 3 e 5 jogadas.
+    const visibleHard = CAMPAIGN.filter((l) => l.difficulty === 'hard' && !(l.def as UltimateLevelDef).hidden);
+    expect(visibleHard.map((l) => [l.id, energyCapacity((l.def as UltimateLevelDef).slots.length)])).toEqual([
+      [6, 2],
+      [8, 3],
+      [11, 5],
+    ]);
+    for (const level of CAMPAIGN.filter((l) => l.difficulty === 'easy')) {
+      const min = solve(level.def).minClicks;
+      expect(min, `fase ${level.id}`).toBeGreaterThanOrEqual(1);
+      expect(energyCapacity(min), `fase ${level.id}`).toBeGreaterThan(min);
+    }
+  });
+
+  it('progresso dos três modos antigos vira progresso da campanha', () => {
+    const steps = [
+      { difficulty: 'easy', source: 1 },
+      { difficulty: 'medium', source: 3 },
+      { difficulty: 'hard', source: 1 },
+      { difficulty: 'easy', source: 2 },
+      { difficulty: 'medium', source: 5 },
+      { difficulty: 'hard', source: 2 },
+    ] as const;
+    // Modo normal até a 2, Expert vencido até a 4 (em sequência), Ultimate só a 2.
+    expect(migrateV1({ version: 1, completed: [1, 2], expertBest: 4, ultimateCompleted: [2] }, steps)).toEqual([1, 2, 4, 6]);
+    expect(migrateV1({ version: 1 }, steps)).toEqual([]);
+    expect(migrateV1({ version: 1, completed: 'x', expertBest: 'y', ultimateCompleted: null }, steps)).toEqual([]);
+
+    // Pela campanha real: quem só jogou o modo normal inteiro continua na primeira fase média.
+    const old = JSON.stringify({ version: 1, completed: Array.from({ length: 36 }, (_, i) => i + 1), seenIntros: ['AND'], sound: false, music: true, expertBest: 0, expertPlayed: true, ultimateCompleted: [] });
+    const p = loadProgress({ getItem: () => old });
+    expect(p.version).toBe(2);
+    expect(p.seenIntros).toEqual(['AND']);
+    expect([p.sound, p.music]).toEqual([false, true]);
+    expect(p.completed).toEqual(CAMPAIGN_STEPS.flatMap((s, i) => (s.difficulty === 'easy' ? [i + 1] : [])));
+    expect(Math.min(...CAMPAIGN_STEPS.map((s, i) => (s.difficulty === 'easy' ? Infinity : i + 1)))).toBe(3);
+    expect(p).not.toHaveProperty('expertBest');
   });
 });
 

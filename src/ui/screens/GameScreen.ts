@@ -2,6 +2,9 @@ import { GATE_ARITY, GATE_TYPES } from '../../core/logic';
 import type { Bit, GateType, LevelDef, Point, UltimateLevelDef } from '../../core/types';
 import { fits, isComplete, isSolution, remainingPieces } from '../../core/ultimate';
 import { t } from '../../i18n/i18n';
+import type { Difficulty } from '../../levels/campaign';
+import { isLeftStripFree, leftClearance } from '../../layout/clearance';
+import { MAX_LIVES } from '../../storage/progress';
 import type { Board } from '../../render/Board';
 import { gateSvg } from '../../render/gateShapes';
 import type { Stage } from '../../render/Stage';
@@ -10,15 +13,18 @@ import { GatePopover } from '../GatePopover';
 import type { Screen } from './Screen';
 
 export interface GameHooks {
+  /**
+   * Médio: a energia fica escondida até o aluno tocar em "Ativar", com 3 vidas.
+   * Difícil: chaves fixas e o jogador monta o circuito com as peças da bandeja.
+   */
+  difficulty: Difficulty;
   isLast: boolean;
-  /** Modo Expert: a energia fica escondida até o aluno tocar em "Ativar", com 3 vidas por fase. */
-  expert?: boolean;
-  /** Modo Expert: fase onde a partida recomeça depois do fim de jogo. */
-  retryLevel?: number;
-  /** Modo normal: ao concluir a última fase, convida para o modo Expert quem nunca o jogou. */
-  suggestExpert?: boolean;
-  /** Modo Ultimate: chaves fixas e o jogador monta o circuito com as peças da bandeja. */
-  ultimate?: boolean;
+  /** Total de fases, para o texto da vitória final. */
+  total: number;
+  /** Lâmpadas de vida que o jogador traz das fases anteriores. */
+  lives: number;
+  /** Barra de energia: gasta a cada toque numa chave (fácil) ou peça encaixada (difícil sem "Ativar"). */
+  energy?: { capacity: number; left: number };
   sound: boolean;
   music: boolean;
   onSound(on: boolean): void;
@@ -27,26 +33,35 @@ export interface GameHooks {
   onGlossary(): void;
   onNext(): void;
   onLevels(): void;
-  /** Devolve true quando esta vitória liberou um modo novo. */
-  onWin(): boolean | void;
+  onWin(): void;
   onToggle(value: Bit): void;
   onLampOn(): void;
   onRestart(): void;
   onActivate?(): void;
   onBurn?(livesLeft: number): void;
+  /** Uma lâmpada de vida queimou (a última leva ao fim de jogo). */
+  onLifeLost(): void;
+  /** A barra de energia mudou. */
+  onEnergy?(left: number): void;
   onGameOver?(): void;
   onRetry?(): void;
-  /** Modo Ultimate: uma peça entrou ou saiu de um encaixe. */
+  /** Fase difícil: uma peça entrou ou saiu de um encaixe. */
   onPlace?(): void;
 }
 
 const HUD_HEIGHT = 58;
 const ACTION_BAR_HEIGHT = 64;
-/** Modo Ultimate: altura da bandeja de peças (mais a linha do Ativar, quando a energia é escondida). */
-const TRAY_HEIGHT = 92;
+/** Espaço (px) entre a bandeja de peças e o que estiver em volta dela. */
+const TRAY_GAP = 8;
+/** Formas da bandeja, em ordem de preferência: [duas colunas, peças menores]. */
+const TRAY_SHAPES: [boolean, boolean][] = [
+  [false, false],
+  [true, false],
+  [false, true],
+  [true, true],
+];
 /** Distância que o dedo precisa andar para um toque na peça virar arrasto. */
 const DRAG_THRESHOLD = 8;
-export const MAX_LIVES = 3;
 
 const BULB_SVG =
   '<svg viewBox="0 0 24 32" aria-hidden="true"><path class="glass" d="M12 2a9 9 0 0 0-5.2 16.4c1 .8 1.7 2 1.7 3.3V23h7v-1.3c0-1.3.7-2.5 1.7-3.3A9 9 0 0 0 12 2z"/><path class="filament" d="M9 14l1.5-2.5 1.5 2.5 1.5-2.5L15 14"/><rect class="base" x="8.5" y="24" width="7" height="2.4" rx="1"/><rect class="base" x="9.2" y="27.2" width="5.6" height="2.4" rx="1"/></svg>';
@@ -56,14 +71,21 @@ export class GameScreen implements Screen {
   readonly el: HTMLElement;
   board!: Board;
   won = false;
-  /** Modo Expert: lâmpadas de vida que ainda não queimaram. */
-  lives = MAX_LIVES;
+  /** Lâmpadas de vida que ainda não queimaram; passam de uma fase para a outra. */
+  lives: number;
+  /** Barra de energia (jogadas que restam antes de queimar uma lâmpada), quando a fase tem uma. */
+  private readonly energy: { capacity: number; left: number } | null;
+  private readonly energyEl: HTMLElement | null = null;
   private readonly expert: boolean;
-  /** Modo Ultimate: a fase com encaixes e peças. */
+  /** Fase difícil: a fase com encaixes e peças. */
   private readonly ultimate: UltimateLevelDef | null;
-  /** Energia escondida até "Ativar", com vidas (Expert e parte das fases Ultimate). */
+  /** Energia escondida até "Ativar", com vidas (fases médias e parte das difíceis). */
   private readonly hidden: boolean;
   private readonly trayButtons = new Map<GateType, HTMLButtonElement>();
+  /** Fase difícil: bandeja na lateral esquerda, por cima da placa onde não cobre nada. */
+  private readonly trayEl: HTMLElement | null = null;
+  /** Fase difícil: menor x ocupado em cada linha da placa, para posicionar a bandeja. */
+  private clearance: Float32Array | null = null;
   private readonly noticeEl: HTMLElement | null = null;
   private noticeTimer = 0;
   /** Peça escolhida na bandeja, esperando o toque num encaixe. */
@@ -71,19 +93,25 @@ export class GameScreen implements Screen {
   private drag: { type: GateType; start: Point; ghost: HTMLElement | null } | null = null;
   /** O clique que o navegador dispara ao fim de um arrasto não deve selecionar a peça. */
   private suppressClick = false;
-  private readonly livesEl: HTMLElement | null = null;
+  private readonly livesEl: HTMLElement;
   private readonly activateBtn: HTMLButtonElement | null = null;
   private popover: GatePopover | null = null;
   private popoverFrame = 0;
   private winTimer = 0;
-  /** Esta vitória liberou um modo novo (Expert no modo normal, Ultimate no Expert). */
-  private modeUnlocked = false;
   private readonly victory: HTMLElement;
   private readonly audioBtn: HTMLButtonElement;
   private readonly audioPanel: HTMLElement;
   private sound: boolean;
   private music: boolean;
   private readonly onKey = (e: KeyboardEvent) => this.handleKey(e);
+  private readonly difficultyEl: HTMLElement;
+  private readonly tipEl: HTMLElement | null = null;
+  private tipFrame = 0;
+  /** Reposiciona a bandeja e a dica depois que a placa se ajusta ao novo tamanho da janela. */
+  private readonly onResize = () => {
+    cancelAnimationFrame(this.tipFrame);
+    this.tipFrame = requestAnimationFrame(() => this.placeOverlays());
+  };
   /**
    * Toque no HUD ou em outra tela fecha o balão; toques na placa não fecham,
    * para o aluno ver a linha da tabela mudar enquanto mexe nas chaves.
@@ -100,10 +128,9 @@ export class GameScreen implements Screen {
     readonly level: LevelDef,
     private readonly hooks: GameHooks,
   ) {
-    const tipKey = hooks.ultimate ? `ultimate.tip.${level.id}` : `game.tip.${level.id}`;
-    const tip = t(tipKey);
-    this.expert = hooks.expert ?? false;
-    this.ultimate = hooks.ultimate ? (level as UltimateLevelDef) : null;
+    const tip = t(`game.tip.${level.id}`);
+    this.expert = hooks.difficulty === 'medium';
+    this.ultimate = hooks.difficulty === 'hard' ? (level as UltimateLevelDef) : null;
     this.hidden = this.expert || (this.ultimate?.hidden ?? false);
     this.sound = hooks.sound;
     this.music = hooks.music;
@@ -125,12 +152,24 @@ export class GameScreen implements Screen {
       }),
     );
     this.updateAudioIcon();
-    if (this.hidden) {
-      this.livesEl = h('div', { class: 'lives', role: 'img', 'data-testid': 'lives' });
-      for (let i = 0; i < MAX_LIVES; i++) this.livesEl.append(h('span', { class: 'life', html: BULB_SVG }));
-      this.activateBtn = h('button', { class: 'btn primary big activate-btn', 'data-testid': 'activate', onclick: () => this.activate() });
-      this.renderLives();
+    this.lives = hooks.lives;
+    this.energy = hooks.energy ? { ...hooks.energy } : null;
+    if (this.energy) {
+      this.energyEl = h(
+        'div',
+        { class: 'energy', role: 'meter', 'aria-valuemin': '0', 'aria-valuemax': String(this.energy.capacity), 'data-testid': 'energy' },
+        h('span', { class: 'energy-fill' }),
+      );
     }
+    const lifeRow = h('div', { class: 'life-row', role: 'img' });
+    for (let i = 0; i < MAX_LIVES; i++) lifeRow.append(h('span', { class: 'life', html: BULB_SVG }));
+    this.livesEl = h('div', { class: 'lives', 'data-testid': 'lives' }, lifeRow, this.energyEl);
+    this.renderLives();
+    this.renderEnergy();
+    if (this.hidden) this.activateBtn = h('button', { class: 'btn primary big activate-btn', 'data-testid': 'activate', onclick: () => this.activate() });
+    this.difficultyEl = h('div', { class: `difficulty-label diff-${hooks.difficulty}`, 'data-testid': 'difficulty', text: t(`difficulty.${hooks.difficulty}`) });
+    if (!tip.startsWith('[')) this.tipEl = h('p', { class: 'hud-tip', text: tip });
+    if (this.ultimate) this.trayEl = this.buildTray(this.ultimate);
     this.el = h(
       'section',
       { class: 'screen game-screen' },
@@ -138,31 +177,23 @@ export class GameScreen implements Screen {
         'header',
         { class: 'hud' },
         h('div', { class: 'hud-group' }, iconButton('restart', t('game.restart'), () => this.restart()), iconButton('book', t('game.glossary'), hooks.onGlossary)),
-        h(
-          'h1',
-          { class: 'hud-title', 'data-testid': 'level-title' },
-          this.expert ? h('span', { class: 'hud-mode', text: t('expert.mode') }) : null,
-          this.ultimate ? h('span', { class: 'hud-mode', text: t('ultimate.mode') }) : null,
-          t('game.level', { level: level.id }),
-        ),
+        h('h1', { class: 'hud-title', 'data-testid': 'level-title', text: t('game.level', { level: level.id }) }),
         h('div', { class: 'hud-group' }, this.audioBtn, iconButton('home', t('game.menu'), hooks.onMenu)),
       ),
       this.audioPanel,
-      this.expert || tip.startsWith('[') ? null : h('p', { class: `hud-tip ${this.hidden ? 'below-lives' : ''}`.trim(), text: tip }),
+      this.difficultyEl,
+      this.tipEl,
       this.livesEl,
       this.ultimate ? (this.noticeEl = h('p', { class: 'ultimate-notice', role: 'status', hidden: true })) : null,
-      this.ultimate
-        ? h('div', { class: `action-bar ultimate-bar ${this.hidden ? 'with-activate' : ''}`.trim() }, this.buildTray(this.ultimate), this.activateBtn)
-        : this.expert
-          ? h('div', { class: 'action-bar' }, this.activateBtn)
-          : null,
+      this.trayEl,
+      this.hidden ? h('div', { class: 'action-bar' }, this.activateBtn) : null,
       this.victory,
     );
   }
 
-  /** Bandeja do Ultimate: um botão por tipo de peça, com quantas ainda restam. */
+  /** Bandeja da fase difícil: um botão por tipo de peça, com quantas ainda restam. */
   private buildTray(level: UltimateLevelDef): HTMLElement {
-    const tray = h('div', { class: 'tray', role: 'toolbar', 'aria-label': t('ultimate.tray') });
+    const tray = h('div', { class: 'tray', role: 'toolbar', 'aria-orientation': 'vertical', 'aria-label': t('tray.label'), 'data-testid': 'tray' });
     for (const type of GATE_TYPES) {
       if (!level.pieces[type]) continue;
       const btn = h('button', {
@@ -186,13 +217,13 @@ export class GameScreen implements Screen {
   }
 
   mount(): void {
-    const bottom = this.ultimate ? TRAY_HEIGHT + (this.hidden ? ACTION_BAR_HEIGHT : 0) : this.expert ? ACTION_BAR_HEIGHT : 0;
-    this.stage.insets = { top: HUD_HEIGHT, bottom };
+    this.stage.insets = { top: HUD_HEIGHT, bottom: this.hidden ? ACTION_BAR_HEIGHT : 0 };
     this.board = this.stage.show(
       this.level,
       {
         onToggle: (_, value) => {
           this.hooks.onToggle(value);
+          this.spendEnergy();
           this.updateActivate();
         },
         onGateTap: (id) => this.openPopover(id),
@@ -210,11 +241,101 @@ export class GameScreen implements Screen {
     this.updateActivate();
     window.addEventListener('keydown', this.onKey);
     window.addEventListener('pointerdown', this.onPointerDown, true);
+    window.addEventListener('resize', this.onResize);
+    if (this.ultimate) this.clearance = leftClearance(this.board.layout);
+    this.placeOverlays();
+  }
+
+  private placeOverlays(): void {
+    this.placeTray();
+    this.placeTip();
+  }
+
+  /**
+   * Bandeja na lateral esquerda, logo abaixo do rótulo da dificuldade. Com margem larga ao
+   * lado da placa (computador) ela fica na margem; senão, por cima da placa, na primeira altura em
+   * que não cobre nenhum elemento do circuito. Se uma coluna não couber, tenta duas,
+   * e depois as mesmas formas com peças menores.
+   */
+  private placeTray(): void {
+    const tray = this.trayEl;
+    const clearance = this.clearance;
+    if (!tray || !clearance) return;
+    const screen = this.el.getBoundingClientRect();
+    const origin = this.stage.toClient({ x: 0, y: 0 });
+    const scale = this.stage.scale;
+    const minTop = this.difficultyEl.getBoundingClientRect().bottom + TRAY_GAP;
+    const maxBottom = (this.el.querySelector('.action-bar')?.getBoundingClientRect().top ?? screen.bottom) - TRAY_GAP;
+    const toBoardY = (clientY: number) => (clientY - origin.y) / scale;
+    const put = (left: number, top: number) => {
+      tray.style.left = `${left - screen.left}px`;
+      tray.style.top = `${top - screen.top}px`;
+    };
+    for (const [twoCols, compact] of TRAY_SHAPES) {
+      tray.classList.toggle('two-cols', twoCols);
+      tray.classList.toggle('compact', compact);
+      const { width, height } = tray.getBoundingClientRect();
+      // Só usa a margem quando ela é larga de verdade; numa faixa estreita (tablet em pé)
+      // a bandeja ficaria colada na borda da tela, solta da placa.
+      const outside = origin.x >= 2 * (width + TRAY_GAP);
+      const left = outside ? origin.x - width - TRAY_GAP : Math.max(TRAY_GAP, origin.x + TRAY_GAP);
+      const right = (left + width - origin.x) / scale;
+      for (let top = minTop; top + height <= maxBottom; top += 4) {
+        if (outside || isLeftStripFree(clearance, right, toBoardY(top), toBoardY(top + height))) {
+          put(left, top);
+          return;
+        }
+      }
+    }
+    // Tela pequena demais para qualquer espaço livre: uma coluna compacta logo abaixo do rótulo.
+    tray.classList.remove('two-cols');
+    tray.classList.add('compact');
+    put(Math.max(TRAY_GAP, origin.x + TRAY_GAP), minTop);
+  }
+
+  /** A bandeja está numa posição que não cobre nenhum elemento do circuito (usado nos testes). */
+  trayIsClear(): boolean {
+    if (!this.trayEl || !this.clearance) return true;
+    const r = this.trayEl.getBoundingClientRect();
+    const origin = this.stage.toClient({ x: 0, y: 0 });
+    const scale = this.stage.scale;
+    return isLeftStripFree(this.clearance, (r.right - origin.x) / scale, (r.top - origin.y) / scale, (r.bottom - origin.y) / scale);
+  }
+
+  /**
+   * A dica fica logo abaixo do HUD quando cabe antes do rótulo da dificuldade e das
+   * vidas (placa mais baixa, sobra espaço em cima); senão, desce para baixo deles.
+   * Se ela cair ao lado da bandeja de peças, estreita para não cobri-la.
+   */
+  private placeTip(): void {
+    const tip = this.tipEl;
+    if (!tip) return;
+    tip.style.top = tip.style.left = tip.style.width = tip.style.transform = '';
+    this.tipBelowBadges(tip);
+    const tray = this.trayEl?.getBoundingClientRect();
+    const r = tip.getBoundingClientRect();
+    if (!tray || tray.right <= r.left || tray.bottom <= r.top || tray.top >= r.bottom) return;
+    const left = tray.right + TRAY_GAP;
+    tip.style.transform = 'none';
+    tip.style.left = `${left - this.el.getBoundingClientRect().left}px`;
+    tip.style.width = `${r.right - left}px`;
+    tip.style.top = '';
+    this.tipBelowBadges(tip);
+  }
+
+  private tipBelowBadges(tip: HTMLElement): void {
+    const badges = [this.difficultyEl, this.livesEl].map((el) => el.getBoundingClientRect());
+    const natural = tip.getBoundingClientRect();
+    if (natural.bottom + 6 <= Math.min(...badges.map((b) => b.top))) return;
+    const top = Math.max(...badges.map((b) => b.bottom)) + 8 - this.el.getBoundingClientRect().top;
+    tip.style.top = `${top}px`;
   }
 
   destroy(): void {
     window.removeEventListener('keydown', this.onKey);
     window.removeEventListener('pointerdown', this.onPointerDown, true);
+    window.removeEventListener('resize', this.onResize);
+    cancelAnimationFrame(this.tipFrame);
     window.clearTimeout(this.winTimer);
     window.clearTimeout(this.noticeTimer);
     this.endDrag();
@@ -222,9 +343,59 @@ export class GameScreen implements Screen {
     this.stage.clear();
   }
 
-  /** A fase tem lâmpadas de vida (energia escondida até "Ativar"). */
-  get usesLives(): boolean {
-    return this.hidden;
+  /** Jogadas que restam na barra de energia (null nas fases sem barra). */
+  get energyLeft(): number | null {
+    return this.energy?.left ?? null;
+  }
+
+  /**
+   * Cada jogada (toque numa chave ou peça encaixada) gasta um ponto da barra. Quando ela
+   * zera, uma lâmpada de vida estoura e a barra enche de novo, a menos que essa jogada
+   * tenha resolvido a fase.
+   */
+  private spendEnergy(): void {
+    const energy = this.energy;
+    if (!energy || this.won || this.lives === 0) return;
+    energy.left = Math.max(0, energy.left - 1);
+    const solved = this.ultimate ? isSolution(this.ultimate, this.board.slotFill) : this.board.logicalValues()[this.level.output] === 1;
+    if (energy.left === 0 && !solved) {
+      this.loseLife();
+      if (this.lives === 0) {
+        this.renderEnergy();
+        return;
+      }
+      energy.left = energy.capacity;
+      this.energyEl?.classList.remove('refill');
+      void this.energyEl?.offsetWidth;
+      this.energyEl?.classList.add('refill');
+    }
+    this.renderEnergy();
+    this.hooks.onEnergy?.(energy.left);
+  }
+
+  private renderEnergy(): void {
+    const energy = this.energy;
+    const el = this.energyEl;
+    if (!energy || !el) return;
+    const ratio = energy.left / energy.capacity;
+    (el.firstElementChild as HTMLElement).style.width = `${ratio * 100}%`;
+    el.classList.toggle('low', ratio <= 1 / 3);
+    el.setAttribute('aria-valuenow', String(energy.left));
+    el.setAttribute('aria-label', t('game.energy', { left: energy.left, capacity: energy.capacity }));
+  }
+
+  /** Uma lâmpada de vida estoura; sem nenhuma, a fase trava e vem o fim de jogo. */
+  private loseLife(): void {
+    this.lives--;
+    this.renderLives();
+    this.hooks.onBurn?.(this.lives);
+    this.hooks.onLifeLost();
+    if (this.lives === 0) {
+      this.board.locked = true;
+      this.closePopover();
+      this.hooks.onGameOver?.();
+      this.winTimer = window.setTimeout(() => this.showGameOver(), 1100);
+    }
   }
 
   /** Energia visível: vence quando a lâmpada acende e a lógica confirma (um pico passageiro não conta). */
@@ -252,7 +423,7 @@ export class GameScreen implements Screen {
       const n = left[type] ?? 0;
       btn.querySelector('.piece-count')!.textContent = `×${n}`;
       btn.disabled = n <= 0;
-      btn.setAttribute('aria-label', t('ultimate.piece', { gate: type, count: n }));
+      btn.setAttribute('aria-label', t('tray.piece', { gate: type, count: n }));
     }
     if (this.selected && (left[this.selected] ?? 0) <= 0) this.selectPiece(null);
   }
@@ -267,7 +438,7 @@ export class GameScreen implements Screen {
     if (this.board.slotFill[slotId]) {
       this.board.setSlot(slotId, null);
       this.placed();
-    } else this.notice(t('ultimate.pick'));
+    } else this.notice(t('tray.pick'));
   }
 
   private place(slotId: string, type: GateType): void {
@@ -275,11 +446,13 @@ export class GameScreen implements Screen {
     const fill = this.board.slotFill;
     if (fill[slotId] === type) return;
     if (!fits(this.level, slotId, type)) {
-      this.notice(t(GATE_ARITY[type] === 1 ? 'ultimate.noFit1' : 'ultimate.noFit2', { gate: type }));
+      this.notice(t(GATE_ARITY[type] === 1 ? 'tray.noFit1' : 'tray.noFit2', { gate: type }));
       return;
     }
     if ((remainingPieces(this.ultimate!, fill)[type] ?? 0) <= 0) return;
     this.board.setSlot(slotId, type);
+    // Só encaixar gasta energia; devolver a peça à bandeja é de graça.
+    this.spendEnergy();
     this.placed();
   }
 
@@ -351,7 +524,7 @@ export class GameScreen implements Screen {
     this.audioBtn.innerHTML = this.sound || this.music ? ICONS.sound : ICONS.soundOff;
   }
 
-  /** Modo Expert: o aluno confirma as chaves e a energia corre. */
+  /** Energia escondida: o aluno confirma as chaves e a energia corre. */
   activate(): void {
     if (!this.hidden || this.won || this.lives === 0 || this.board.revealed) return;
     if (this.ultimate && !isComplete(this.ultimate, this.board.slotFill)) return;
@@ -367,21 +540,13 @@ export class GameScreen implements Screen {
       this.win();
       return;
     }
-    this.lives--;
-    this.renderLives();
-    this.hooks.onBurn?.(this.lives);
-    if (this.lives === 0) {
-      this.board.locked = true;
-      this.hooks.onGameOver?.();
-      this.winTimer = window.setTimeout(() => this.showGameOver(), 1100);
-    }
+    this.loseLife();
     this.updateActivate();
   }
 
   private renderLives(): void {
-    if (!this.livesEl) return;
-    [...this.livesEl.children].forEach((el, i) => el.classList.toggle('burnt', i >= this.lives));
-    this.livesEl.setAttribute('aria-label', t('expert.lives', { count: this.lives }));
+    this.livesEl.querySelectorAll('.life').forEach((el, i) => el.classList.toggle('burnt', i >= this.lives));
+    this.livesEl.querySelector('.life-row')!.setAttribute('aria-label', t('game.lives', { count: this.lives }));
   }
 
   /**
@@ -396,12 +561,18 @@ export class GameScreen implements Screen {
     const waiting = !canActivate && !this.won && this.lives > 0 && !this.board.animating;
     btn.disabled = !canActivate;
     btn.classList.toggle('waiting', waiting);
-    const hint = this.board.revealed ? t(this.ultimate ? 'ultimate.hint' : 'expert.hint') : t('ultimate.fill');
-    btn.innerHTML = waiting ? hint : `${ICONS.bolt} ${t('expert.activate')}`;
+    const hint = this.board.revealed ? t(this.ultimate ? 'game.hint.hard' : 'game.hint.medium') : t('game.fill');
+    btn.innerHTML = waiting ? hint : `${ICONS.bolt} ${t('game.activate')}`;
   }
 
   restart(): void {
-    if (this.hidden && this.lives === 0) return;
+    if (this.lives === 0) return;
+    // Reiniciar no meio da fase não enche a barra; jogar de novo uma fase vencida, sim.
+    if (this.won && this.energy) {
+      this.energy.left = this.energy.capacity;
+      this.renderEnergy();
+      this.hooks.onEnergy?.(this.energy.left);
+    }
     window.clearTimeout(this.winTimer);
     this.closePopover();
     this.won = false;
@@ -420,29 +591,21 @@ export class GameScreen implements Screen {
     this.closePopover();
     this.updateActivate();
     this.hooks.onLampOn();
-    this.modeUnlocked = this.hooks.onWin() === true;
+    this.hooks.onWin();
     this.winTimer = window.setTimeout(() => this.showVictory(), 1100);
   }
 
   private showVictory(): void {
-    if (this.expert) {
-      this.showExpertVictory();
-      return;
-    }
     const last = this.hooks.isLast;
-    const u = this.ultimate !== null;
-    const finalText = u
-      ? t('ultimate.final.text', { count: this.level.id })
-      : this.hooks.suggestExpert
-        ? t('win.final.suggestExpert')
-        : t('win.final.text', { count: this.level.id });
-    const title = last ? t(u ? 'ultimate.final.title' : 'win.final.title') : t('win.title');
+    const text = last
+      ? t('win.final.text', { count: this.hooks.total })
+      : t(this.ultimate ? 'win.text.hard' : 'win.text', { level: this.level.id });
     this.victory.replaceChildren(
       h(
         'div',
         { class: 'victory-card' },
-        h('h2', { text: title }),
-        h('p', { 'data-testid': 'win-text', text: last ? finalText : t(u ? 'ultimate.win.text' : 'win.text', { level: this.level.id }) }),
+        h('h2', { text: last ? t('win.final.title') : t('win.title') }),
+        h('p', { 'data-testid': 'win-text', text }),
         h(
           'div',
           { class: 'victory-actions' },
@@ -453,64 +616,26 @@ export class GameScreen implements Screen {
         ),
       ),
     );
-    if (this.modeUnlocked) this.victory.prepend(this.unlockRibbon('expert'));
-    this.showCard();
-  }
-
-  /** Faixa diagonal sobre a placa anunciando que um modo novo ficou disponível no menu. */
-  private unlockRibbon(mode: 'expert' | 'ultimate'): HTMLElement {
-    return h(
-      'div',
-      { class: 'unlock-ribbon-wrap' },
-      h(
-        'div',
-        { class: 'unlock-ribbon', role: 'status', 'data-testid': `${mode}-unlocked` },
-        h('strong', { html: `${ICONS.bolt} ${t(`${mode}.unlocked.title`)} ${ICONS.bolt}` }),
-        h('small', { text: t('expert.unlocked.text') }),
-      ),
-    );
-  }
-
-  private showExpertVictory(): void {
-    const last = this.hooks.isLast;
-    this.victory.replaceChildren(
-      h(
-        'div',
-        { class: 'victory-card' },
-        h('h2', { text: last ? t('expert.final.title') : t('win.title') }),
-        h('p', { text: last ? t('expert.final.text', { count: this.level.id }) : t('expert.win.text', { level: this.level.id }) }),
-        h(
-          'div',
-          { class: 'victory-actions' },
-          last
-            ? h('button', { class: 'btn primary big', html: `${ICONS.home} ${t('expert.over.menu')}`, onclick: this.hooks.onMenu })
-            : h('button', { class: 'btn primary big', 'data-testid': 'next', html: `${t('win.next')} ${ICONS.next}`, onclick: this.hooks.onNext }),
-        ),
-      ),
-    );
-    if (this.modeUnlocked) this.victory.prepend(this.unlockRibbon('ultimate'));
     this.showCard();
   }
 
   private showGameOver(): void {
-    const level = this.hooks.retryLevel ?? 1;
-    const u = this.ultimate !== null;
     this.victory.replaceChildren(
       h(
         'div',
         { class: 'victory-card game-over' },
-        h('h2', { text: t('expert.over.title') }),
-        h('p', { text: u ? t('ultimate.over.text') : t('expert.over.text', { level }) }),
+        h('h2', { text: t('over.title') }),
+        h('p', { text: t(this.ultimate ? 'over.text.hard' : 'over.text') }),
         h(
           'div',
           { class: 'victory-actions' },
           h('button', {
             class: 'btn primary big',
             'data-testid': 'retry',
-            html: `${ICONS.restart} ${u ? t('ultimate.over.retry') : t('expert.over.retry', { level })}`,
+            html: `${ICONS.restart} ${t('over.retry')}`,
             onclick: () => this.hooks.onRetry?.(),
           }),
-          h('button', { class: 'btn', html: `${ICONS.home} ${t('expert.over.menu')}`, onclick: this.hooks.onMenu }),
+          h('button', { class: 'btn', html: `${ICONS.home} ${t('game.menu')}`, onclick: this.hooks.onMenu }),
         ),
       ),
     );

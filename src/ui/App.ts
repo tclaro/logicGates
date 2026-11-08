@@ -1,24 +1,17 @@
 import { audio } from '../audio/AudioManager';
-import type { Bit, GateType } from '../core/types';
-import { chapterStart, introGateFor } from '../levels/chapters';
-import { t } from '../i18n/i18n';
-import { getLevel, getUltimateLevel, LEVELS, newPiecesIn, ULTIMATE_LEVELS } from '../levels';
+import type { Bit, GateType, UltimateLevelDef } from '../core/types';
+import { CAMPAIGN, getCampaignLevel } from '../levels';
 import type { Stage } from '../render/Stage';
+import { solve } from '../core/solver';
 import {
-  EXPERT_UNLOCK_LEVEL,
-  highestUltimateUnlocked,
+  energyCapacity,
   highestUnlocked,
-  isExpertUnlocked,
-  isUltimateUnlocked,
   isUnlocked,
   loadProgress,
+  loseLife,
   markCompleted,
-  markExpertPlayed,
   markIntroSeen,
-  markUltimateCompleted,
-  recordExpert,
   saveProgress,
-  ULTIMATE_UNLOCK_LEVEL,
   type Progress,
 } from '../storage/progress';
 import { GameScreen, type GameHooks } from './screens/GameScreen';
@@ -50,7 +43,7 @@ export class App {
   }
 
   get total(): number {
-    return LEVELS.length;
+    return CAMPAIGN.length;
   }
 
   get game(): GameScreen | null {
@@ -88,13 +81,7 @@ export class App {
   /** Próxima fase a jogar: a primeira não concluída, ou null se todas foram. */
   nextLevel(): number | null {
     const done = new Set(this.progress.completed);
-    return LEVELS.find((l) => !done.has(l.id))?.id ?? null;
-  }
-
-  /** Próxima fase do Ultimate: a primeira não concluída, ou null se todas foram. */
-  nextUltimate(): number | null {
-    const done = new Set(this.progress.ultimateCompleted);
-    return ULTIMATE_LEVELS.find((l) => !done.has(l.id))?.id ?? null;
+    return CAMPAIGN.find((l) => !done.has(l.id))?.id ?? null;
   }
 
   private setSound(on: boolean): void {
@@ -114,20 +101,7 @@ export class App {
         hasProgress: this.progress.completed.length > 0,
         sound: this.progress.sound,
         music: this.progress.music,
-        expert: { unlocked: isExpertUnlocked(this.progress), best: this.progress.expertBest, unlockLevel: EXPERT_UNLOCK_LEVEL },
-        ultimate: {
-          unlocked: isUltimateUnlocked(this.progress),
-          next: this.nextUltimate(),
-          started: this.progress.ultimateCompleted.length > 0,
-          unlockLevel: ULTIMATE_UNLOCK_LEVEL,
-        },
         onPlay: () => this.startLevel(this.nextLevel() ?? 1),
-        onExpert: () => this.startExpert(1),
-        onUltimate: () => {
-          const next = this.nextUltimate();
-          if (next === null) this.showUltimateLevels();
-          else this.startUltimate(next);
-        },
         onLevels: () => this.showLevels(),
         onGlossary: () => this.openGlossary(),
         onSound: (on) => this.setSound(on),
@@ -139,24 +113,10 @@ export class App {
   showLevels(): void {
     this.show(
       new LevelSelectScreen({
-        total: this.total,
+        levels: CAMPAIGN,
         completed: new Set(this.progress.completed),
         highestUnlocked: highestUnlocked(this.progress, this.total),
         onPick: (id) => this.startLevel(id),
-        onBack: () => this.showMenu(),
-      }),
-    );
-  }
-
-  showUltimateLevels(): void {
-    this.show(
-      new LevelSelectScreen({
-        title: t('ultimate.levels'),
-        gateFor: (id) => newPiecesIn(id)[0],
-        total: ULTIMATE_LEVELS.length,
-        completed: new Set(this.progress.ultimateCompleted),
-        highestUnlocked: highestUltimateUnlocked(this.progress, ULTIMATE_LEVELS.length),
-        onPick: (id) => this.startUltimate(id),
         onBack: () => this.showMenu(),
       }),
     );
@@ -174,9 +134,9 @@ export class App {
 
   /** Começa uma fase, passando antes pela apresentação da porta nova, se houver. */
   startLevel(id: number): void {
-    if (!isUnlocked(this.progress, id, this.total)) return;
-    const gate = introGateFor(id);
-    if (gate) this.showIntro(gate, id);
+    const level = getCampaignLevel(id);
+    if (!level || !isUnlocked(this.progress, id, this.total)) return;
+    if (level.introGate) this.showIntro(level.introGate, id);
     else this.playLevel(id);
   }
 
@@ -185,15 +145,33 @@ export class App {
     this.show(new IntroScreen({ gate, levelId, onDone: () => this.playLevel(levelId), onClick: toggleSound }));
   }
 
-  /** A vinheta de vitória fica reservada para a última fase, em qualquer modo. */
-  private playWin(id: number): void {
-    if (id === this.total) audio.play('win');
-  }
-
-  /** Ganchos comuns aos dois modos de jogo. */
-  private baseHooks(id: number): GameHooks {
-    return {
-      isLast: id === this.total,
+  playLevel(id: number): void {
+    const level = getCampaignLevel(id);
+    if (!level) return;
+    const last = id === this.total;
+    // Barra de energia nas fases com energia visível: a fácil gasta por toque numa chave,
+    // a difícil sem "Ativar" gasta por peça encaixada. Continua de onde parou se o jogador
+    // saiu no meio da fase.
+    let energy: GameHooks['energy'];
+    const minMoves =
+      level.difficulty === 'easy'
+        ? solve(level.def).minClicks
+        : level.difficulty === 'hard' && !(level.def as UltimateLevelDef).hidden
+          ? (level.def as UltimateLevelDef).slots.length
+          : 0;
+    if (minMoves > 0) {
+      const capacity = energyCapacity(minMoves);
+      const saved = this.progress.energy;
+      energy = { capacity, left: saved?.level === id && saved.left > 0 ? Math.min(saved.left, capacity) : capacity };
+    }
+    const hooks: GameHooks = {
+      difficulty: level.difficulty,
+      isLast: last,
+      total: this.total,
+      lives: this.progress.lives,
+      energy,
+      onLifeLost: () => this.setProgress(loseLife(this.progress).progress),
+      onEnergy: (left) => this.setProgress({ ...this.progress, energy: { level: id, left } }),
       sound: this.progress.sound,
       music: this.progress.music,
       onSound: (on) => this.setSound(on),
@@ -203,95 +181,20 @@ export class App {
       onNext: () => this.startLevel(id + 1),
       onLevels: () => this.showLevels(),
       onWin: () => {
-        const wasUnlocked = isExpertUnlocked(this.progress);
-        this.setProgress(markCompleted(this.progress, id));
-        this.playWin(id);
-        return !wasUnlocked && isExpertUnlocked(this.progress);
+        this.setProgress({ ...markCompleted(this.progress, id), energy: null });
+        // A vinheta de vitória fica reservada para a última fase.
+        if (last) audio.play('win');
       },
       onLampOn: () => audio.play('lamp_on'),
       onToggle: toggleSound,
       onRestart: () => {},
+      onPlace: () => audio.play('switch_on'),
+      onActivate: () => audio.play('energize'),
+      onBurn: () => audio.play('burn'),
+      onGameOver: () => audio.play('game_over'),
+      // Fim de jogo recomeça a mesma fase, com as 3 lâmpadas renovadas (já salvas por loseLife).
+      onRetry: () => this.playLevel(id),
     };
-  }
-
-  playLevel(id: number): void {
-    const level = getLevel(id);
-    if (!level) return;
-    this.show(new GameScreen(this.stage, level, { ...this.baseHooks(id), suggestExpert: !this.progress.expertPlayed }));
-  }
-
-  /**
-   * Modo Expert: as fases vêm em sequência, sem escolha. A introdução de uma porta
-   * só aparece se o aluno ainda não a viu. Sair da partida a encerra.
-   */
-  startExpert(id: number): void {
-    if (!isExpertUnlocked(this.progress) || !getLevel(id)) return;
-    this.setProgress(markExpertPlayed(this.progress));
-    const gate = introGateFor(id);
-    if (gate && !this.progress.seenIntros.includes(gate)) {
-      this.setProgress(markIntroSeen(this.progress, gate));
-      this.show(new IntroScreen({ gate, levelId: id, onDone: () => this.playExpert(id), onClick: toggleSound }));
-    } else this.playExpert(id);
-  }
-
-  playExpert(id: number): void {
-    const level = getLevel(id);
-    if (!level) return;
-    this.show(
-      new GameScreen(this.stage, level, {
-        ...this.baseHooks(id),
-        expert: true,
-        retryLevel: chapterStart(id),
-        onNext: () => this.startExpert(id + 1),
-        onWin: () => {
-          const wasUnlocked = isUltimateUnlocked(this.progress);
-          this.setProgress(recordExpert(this.progress, id));
-          this.playWin(id);
-          return !wasUnlocked && isUltimateUnlocked(this.progress);
-        },
-        onActivate: () => audio.play('energize'),
-        onBurn: () => audio.play('burn'),
-        onGameOver: () => audio.play('game_over'),
-        onRetry: () => this.startExpert(chapterStart(id)),
-      }),
-    );
-  }
-
-  /**
-   * Modo Ultimate: antes da fase aparecem as introduções das peças que o aluno
-   * ainda não viu, uma de cada vez.
-   */
-  startUltimate(id: number): void {
-    const level = getUltimateLevel(id);
-    if (!level || !isUltimateUnlocked(this.progress) || id > highestUltimateUnlocked(this.progress, ULTIMATE_LEVELS.length)) return;
-    const gate = (Object.keys(level.pieces) as GateType[]).find((g) => !this.progress.seenIntros.includes(g));
-    if (gate) {
-      this.setProgress(markIntroSeen(this.progress, gate));
-      this.show(new IntroScreen({ gate, levelId: id, onDone: () => this.startUltimate(id), onClick: toggleSound }));
-    } else this.playUltimate(id);
-  }
-
-  playUltimate(id: number): void {
-    const level = getUltimateLevel(id);
-    if (!level) return;
-    const last = id === ULTIMATE_LEVELS.length;
-    this.show(
-      new GameScreen(this.stage, level, {
-        ...this.baseHooks(id),
-        isLast: last,
-        ultimate: true,
-        onNext: () => this.startUltimate(id + 1),
-        onLevels: () => this.showUltimateLevels(),
-        onWin: () => {
-          this.setProgress(markUltimateCompleted(this.progress, id));
-          if (last) audio.play('win');
-        },
-        onPlace: () => audio.play('switch_on'),
-        onActivate: () => audio.play('energize'),
-        onBurn: () => audio.play('burn'),
-        onGameOver: () => audio.play('game_over'),
-        onRetry: () => this.playUltimate(id),
-      }),
-    );
+    this.show(new GameScreen(this.stage, level.def, hooks));
   }
 }

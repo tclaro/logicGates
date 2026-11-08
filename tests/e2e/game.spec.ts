@@ -1,6 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 
 type Bit = 0 | 1;
+type Difficulty = 'easy' | 'medium' | 'hard';
 interface GameState {
   level: number;
   inputs: Record<string, Bit>;
@@ -8,6 +9,7 @@ interface GameState {
   animating: boolean;
   won: boolean;
   lives: number | null;
+  energy: number | null;
   slots: Record<string, string | null>;
 }
 
@@ -17,8 +19,9 @@ declare global {
       pointOf(id: string): { x: number; y: number } | null;
       solution(levelId: number): Bit[] | null;
       ultimateSolution(levelId: number): Record<string, string> | null;
-      app: { startExpert(id: number): void };
-      ultimateLevels: number;
+      difficulty(levelId: number): Difficulty | null;
+      trayClear(): boolean;
+      levels: number;
       state(): GameState | null;
     };
   }
@@ -47,15 +50,36 @@ async function solve(page: Page, level: number): Promise<void> {
   }
 }
 
-async function seedProgress(page: Page, completed: number[], seenIntros: string[] = [], extra: Record<string, unknown> = {}): Promise<void> {
+/** Monta a solução do solver tocando na peça e depois no encaixe. */
+async function assemble(page: Page, level: number): Promise<void> {
+  const fill = await page.evaluate((id) => window.__game.ultimateSolution(id), level);
+  for (const [slot, piece] of Object.entries(fill!)) {
+    // Com estoque sobrando a peça continua escolhida depois de encaixar; tocar de novo a desmarcaria.
+    const btn = page.getByTestId(`piece-${piece}`);
+    if ((await btn.getAttribute('aria-pressed')) !== 'true') await btn.click();
+    await tap(page, slot);
+  }
+  await expect.poll(async () => (await state(page))!.slots).toEqual(fill);
+}
+
+/** Resolve qualquer fase conforme a dificuldade, ativando quando a energia é escondida. */
+async function win(page: Page, level: number): Promise<void> {
+  const difficulty = await page.evaluate((id) => window.__game.difficulty(id), level);
+  if (difficulty === 'hard') await assemble(page, level);
+  else await solve(page, level);
+  if (await page.getByTestId('activate').count()) await page.getByTestId('activate').click();
+  await expect.poll(async () => (await state(page))!.won, { timeout: 10000, message: `fase ${level}` }).toBe(true);
+}
+
+async function seedProgress(page: Page, completed: number[], seenIntros: string[] = []): Promise<void> {
   await page.addInitScript(
-    ([c, s, e]) => localStorage.setItem('portas-logicas:progress', JSON.stringify({ version: 1, completed: c, seenIntros: s, sound: false, music: false, ...e })),
-    [completed, seenIntros, extra] as const,
+    ([c, s]) => localStorage.setItem('portas-logicas:progress', JSON.stringify({ version: 2, completed: c, seenIntros: s, sound: false, music: false })),
+    [completed, seenIntros] as const,
   );
 }
 
 const ALL_GATES = ['AND', 'OR', 'NOT', 'NAND', 'NOR', 'XOR', 'XNOR'];
-const ALL_BUT_LAST = Array.from({ length: 35 }, (_, i) => i + 1);
+const upTo = (n: number) => Array.from({ length: n }, (_, i) => i + 1);
 
 test('primeira jogada: introdução, fase 1, vitória e progresso salvo', async ({ page }) => {
   await page.goto('/');
@@ -65,6 +89,7 @@ test('primeira jogada: introdução, fase 1, vitória e progresso salvo', async 
   await page.getByRole('button', { name: 'Começar fase 1' }).click();
   await waitForBoard(page, 1);
   await expect(page.getByTestId('level-title')).toHaveText('Fase 1');
+  await expect(page.getByTestId('difficulty')).toHaveText('Fácil');
 
   await tap(page, 'b');
   expect((await state(page))!.inputs).toEqual({ a: 1, b: 1 });
@@ -74,8 +99,7 @@ test('primeira jogada: introdução, fase 1, vitória e progresso salvo', async 
   await expect(page.getByTestId('next')).toBeVisible();
 
   const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('portas-logicas:progress')!));
-  expect(saved.completed).toEqual([1]);
-  expect(saved.seenIntros).toEqual(['AND']);
+  expect(saved).toMatchObject({ version: 2, completed: [1], seenIntros: ['AND'] });
 
   // Fase 2 apresenta o OR antes de começar.
   await page.getByTestId('next').click();
@@ -85,11 +109,12 @@ test('primeira jogada: introdução, fase 1, vitória e progresso salvo', async 
   await expect(page.getByTestId('play')).toHaveText(/Continuar — fase 2/);
 });
 
-test('menu: Modo Iniciante e Fases lado a lado', async ({ page }) => {
+test('menu: um único Jogar, ao lado de Fases, sem os modos antigos', async ({ page }) => {
   await page.goto('/');
   const play = page.getByTestId('play');
-  await expect(play).toContainText('Modo Iniciante');
+  await expect(play).toContainText('Jogar');
   await expect(play).toContainText('Comece pela fase 1');
+  await expect(page.getByText(/Expert|Ultimate|Iniciante/)).toHaveCount(0);
   const levels = page.getByRole('button', { name: 'Fases' });
   // Espera a animação de entrada da tela terminar antes de medir.
   await expect.poll(async () => Math.abs((await play.boundingBox())!.y - (await levels.boundingBox())!.y)).toBeLessThan(1);
@@ -98,30 +123,49 @@ test('menu: Modo Iniciante e Fases lado a lado', async ({ page }) => {
   expect(a.x + a.width).toBeLessThanOrEqual(b.x);
 });
 
-test('última fase sem ter jogado o Expert convida para o modo Expert', async ({ page }) => {
-  await seedProgress(page, ALL_BUT_LAST, ALL_GATES);
+test('progresso dos modos antigos continua na primeira fase que falta', async ({ page }) => {
+  await page.addInitScript(() =>
+    localStorage.setItem(
+      'portas-logicas:progress',
+      JSON.stringify({ version: 1, completed: Array.from({ length: 36 }, (_, i) => i + 1), seenIntros: ['AND', 'OR'], sound: false, music: false, expertBest: 0, ultimateCompleted: [] }),
+    ),
+  );
   await page.goto('/');
-  await page.getByTestId('play').click();
-  await waitForBoard(page, 36);
-  await solve(page, 36);
-  await expect(page.getByTestId('win-text')).toHaveText('Você provou ser um excelente iniciante. Por que não tenta o Modo Expert?');
+  // A fase 3 é média: no modo antigo ela só tinha sido jogada com a energia à vista.
+  await expect(page.getByTestId('play')).toHaveText(/Continuar — fase 3/);
+  await page.getByRole('button', { name: 'Fases' }).click();
+  await expect(page.locator('[data-level="2"]')).toHaveClass(/done/);
+  await expect(page.locator('[data-level="3"]')).not.toHaveClass(/done/);
+  await expect(page.locator('[data-level="50"]')).toBeEnabled();
 });
 
-test('última fase depois de jogar o Expert mantém o texto de sempre', async ({ page }) => {
-  await seedProgress(page, ALL_BUT_LAST, ALL_GATES, { expertPlayed: true });
-  await page.goto('/');
-  await page.getByTestId('play').click();
-  await waitForBoard(page, 36);
-  await solve(page, 36);
-  await expect(page.getByTestId('win-text')).toHaveText('Completou todas as 36 fases.');
+test('rótulo da dificuldade no canto superior esquerdo, nas três dificuldades', async ({ page }) => {
+  for (const [level, text] of [
+    [1, 'Fácil'],
+    [3, 'Médio'],
+    [6, 'Difícil'],
+  ] as const) {
+    await page.goto(`/?level=${level}`);
+    await waitForBoard(page, level);
+    const label = page.getByTestId('difficulty');
+    await expect(label).toHaveText(text);
+    const box = (await label.boundingBox())!;
+    const viewport = page.viewportSize()!;
+    expect(box.x + box.width, `fase ${level}: rótulo à esquerda`).toBeLessThan(viewport.width / 2);
+    expect(box.y, `fase ${level}: rótulo no alto`).toBeLessThan(viewport.height / 4);
+    // A dica, quando existe, não cobre o rótulo.
+    const tip = page.locator('.hud-tip');
+    if (await tip.count()) expect((await tip.boundingBox())!.y).toBeGreaterThanOrEqual(box.y + box.height);
+  }
 });
 
 test('reiniciar volta as chaves ao estado inicial', async ({ page }) => {
-  await seedProgress(page, [1, 2], ['AND', 'OR']);
+  await seedProgress(page, upTo(6), ['AND', 'OR', 'NOT']);
   await page.goto('/');
   await page.getByRole('button', { name: 'Fases' }).click();
-  await page.locator('[data-level="3"]').click();
-  await waitForBoard(page, 3);
+  // Fase 7: AND(AND(a, b), OR(c, d)), fácil.
+  await page.locator('[data-level="7"]').click();
+  await waitForBoard(page, 7);
   const initial = (await state(page))!.inputs;
   await tap(page, 'a');
   await tap(page, 'c');
@@ -134,12 +178,12 @@ test('reiniciar volta as chaves ao estado inicial', async ({ page }) => {
   expect((await state(page))!.inputs).toEqual(initial);
 
   // Com o cartão de vitória aberto, os botões do topo continuam clicáveis.
-  await solve(page, 3);
+  await solve(page, 7);
   await expect(page.getByTestId('next')).toBeVisible();
   await page.getByRole('button', { name: 'Reiniciar fase' }).click();
   await expect(page.getByTestId('next')).toBeHidden();
   expect((await state(page))!.inputs).toEqual(initial);
-  await solve(page, 3);
+  await solve(page, 7);
   await expect(page.getByTestId('next')).toBeVisible();
   await page.getByRole('button', { name: 'Som e música' }).click();
   await expect(page.getByRole('group', { name: 'Som e música' })).toBeVisible();
@@ -151,11 +195,12 @@ test('reiniciar volta as chaves ao estado inicial', async ({ page }) => {
 });
 
 test('no jogo, o som se configura e o botão de menu volta ao menu principal', async ({ page }) => {
-  await seedProgress(page, [1, 2], ['AND', 'OR']);
+  await seedProgress(page, [1], ['AND']);
   await page.goto('/');
   await page.getByRole('button', { name: 'Fases' }).click();
-  await page.locator('[data-level="3"]').click();
-  await waitForBoard(page, 3);
+  await page.locator('[data-level="1"]').click();
+  await page.getByRole('button', { name: 'Começar fase 1' }).click();
+  await waitForBoard(page, 1);
 
   const audioBtn = page.getByRole('button', { name: 'Som e música' });
   const panel = page.getByRole('group', { name: 'Som e música' });
@@ -175,42 +220,23 @@ test('no jogo, o som se configura e o botão de menu volta ao menu principal', a
   await expect(page.getByRole('button', { name: 'Efeitos sonoros' })).toHaveAttribute('aria-pressed', 'true');
 });
 
-test('modo Expert: liberado na fase 10, energia escondida, vidas e fim de jogo', async ({ page: before }) => {
-  await seedProgress(before, [1, 2, 3, 4, 5, 6, 7, 8, 9], ['AND', 'OR', 'NOT']);
-  await before.goto('/');
-  await expect(before.getByTestId('expert')).toHaveAttribute('aria-disabled', 'true');
-  await expect(before.getByTestId('expert')).toContainText('Conclua a fase 10');
-  // Tocar no modo bloqueado explica como liberar, sem abrir nada.
-  // force: o botão bloqueado tem aria-disabled, mas continua tocável.
-  await before.getByTestId('expert').click({ force: true });
-  await expect(before.getByTestId('menu-notice')).toContainText('Conclua a fase 10 do Modo Iniciante');
-  await expect(before.getByTestId('play')).toBeVisible();
-
-  // Vencer a fase 10 mostra o aviso de liberação; rejogá-la não mostra de novo.
-  await before.getByTestId('play').click();
-  await waitForBoard(before, 10);
-  await solve(before, 10);
-  await expect(before.getByTestId('expert-unlocked')).toContainText('Modo Expert liberado!');
-  await before.getByRole('button', { name: 'Jogar de novo' }).click();
-  await solve(before, 10);
-  await expect(before.getByTestId('next')).toBeVisible();
-  await expect(before.getByTestId('expert-unlocked')).toHaveCount(0);
-
-  // Outra aba, porque o seedProgress regravaria o progresso ao recarregar.
-  const page = await before.context().newPage();
+test('fase média: energia escondida, vidas e fim de jogo recomeçando a mesma fase', async ({ page }) => {
+  await seedProgress(page, [1, 2], ['AND', 'OR']);
   await page.goto('/');
-  await page.getByTestId('expert').click();
-  await waitForBoard(page, 1);
-  await expect(page.getByTestId('level-title')).toHaveText('ExpertFase 1');
+  await page.getByTestId('play').click();
+  await waitForBoard(page, 3);
+  await expect(page.getByTestId('level-title')).toHaveText('Fase 3');
+  await expect(page.getByTestId('difficulty')).toHaveText('Médio');
+  await expect(page.locator('.hud-tip')).toContainText('Ativar');
   await expect(page.getByTestId('activate')).toHaveText(/Ativar/);
   const lit = page.locator('.life:not(.burnt)');
   await expect(lit).toHaveCount(3);
 
-  // Fase 1: AND(a, b) com a=1, b=0. Ligar b não acende nada até ativar.
-  await tap(page, 'b');
+  // Fase 3: AND(OR(a, b), c) com a=0, b=0, c=1. Ligar a não acende nada até ativar.
+  await tap(page, 'a');
   await page.waitForTimeout(800);
   expect((await state(page))!.lampOn).toBe(false);
-  await tap(page, 'b');
+  await tap(page, 'a');
 
   const activate = page.getByTestId('activate');
   for (let left = 2; left >= 0; left--) {
@@ -220,58 +246,110 @@ test('modo Expert: liberado na fase 10, energia escondida, vidas e fim de jogo',
       // Depois do erro é preciso mudar alguma chave antes de ativar de novo.
       await expect(activate).toBeDisabled();
       await expect(page.getByText('Mude alguma chave')).toBeVisible();
-      await tap(page, 'a');
+      // Continua errado: primeiro c=0, depois b=1 com c=0.
+      await tap(page, left === 2 ? 'c' : 'b');
       await expect(activate).toBeEnabled();
     }
   }
-  await expect(page.getByTestId('retry')).toHaveText(/Recomeçar da fase 1/);
+  await expect(page.getByTestId('retry')).toHaveText(/Tentar de novo/);
+  await page.getByTestId('retry').click();
+  await waitForBoard(page, 3);
+  await expect(lit).toHaveCount(3);
+
+  await tap(page, 'a');
+  await page.keyboard.press('Enter');
+  await expect.poll(async () => (await state(page))!.won, { timeout: 5000 }).toBe(true);
+  await expect(page.getByTestId('win-text')).toHaveText('Você resolveu a fase 3.');
+  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('portas-logicas:progress')!));
+  expect(saved.completed).toEqual([1, 2, 3]);
+  // A próxima fase apresenta o NOT.
+  await page.getByTestId('next').click();
+  await expect(page.getByRole('heading', { name: /NOT/ })).toBeVisible();
+});
+
+test('fase fácil: barra de energia, vidas que passam de fase e fim de jogo na mesma fase', async ({ page }) => {
+  const saved = () => page.evaluate(() => JSON.parse(localStorage.getItem('portas-logicas:progress')!));
+  const lit = page.locator('.life:not(.burnt)');
+  const energy = page.getByTestId('energy');
+  const start = async () => {
+    await page.getByTestId('play').click();
+    await page.getByRole('button', { name: 'Começar fase 1' }).click();
+    await waitForBoard(page, 1);
+  };
+  await page.goto('/');
+  await start();
+  // Fase 1: AND(a, b) com a=1, b=0. Mínimo de 1 clique, então a barra tem 2.
+  await expect(lit).toHaveCount(3);
+  await expect(energy).toHaveAttribute('aria-valuenow', '2');
+  await tap(page, 'a');
+  await expect(energy).toHaveAttribute('aria-valuenow', '1');
+  await tap(page, 'a');
+  // A barra zerou sem acender a lâmpada: uma lâmpada estoura e a barra enche de novo.
+  await expect(lit).toHaveCount(2);
+  await expect(energy).toHaveAttribute('aria-valuenow', '2');
+  expect((await saved()).lives).toBe(2);
+
+  for (let i = 0; i < 4; i++) await tap(page, 'a');
+  await expect(lit).toHaveCount(0);
+  await expect(page.getByTestId('retry')).toBeVisible({ timeout: 5000 });
+  await expect(page.locator('.game-over')).toContainText('recomeça desta mesma fase');
+  expect((await saved()).lives).toBe(3);
   await page.getByTestId('retry').click();
   await waitForBoard(page, 1);
   await expect(lit).toHaveCount(3);
+  await expect(energy).toHaveAttribute('aria-valuenow', '2');
 
+  // Perde uma lâmpada; sair e voltar não renova as vidas nem enche a barra.
+  await tap(page, 'a');
+  await tap(page, 'a');
+  await expect(lit).toHaveCount(2);
+  await tap(page, 'a');
+  await expect(energy).toHaveAttribute('aria-valuenow', '1');
+  await page.reload();
+  await start();
+  await expect(lit).toHaveCount(2);
+  await expect(energy).toHaveAttribute('aria-valuenow', '1');
+
+  // O toque que zera a barra mas acende a lâmpada não queima vida.
   await tap(page, 'b');
-  await page.keyboard.press('Enter');
   await expect.poll(async () => (await state(page))!.won, { timeout: 5000 }).toBe(true);
-  await page.getByTestId('next').click();
-  await waitForBoard(page, 2);
-  await expect(lit).toHaveCount(3);
-  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('portas-logicas:progress')!));
-  expect(saved.expertBest).toBe(1);
-  expect(saved.expertPlayed).toBe(true);
+  await expect(lit).toHaveCount(2);
 
-  // Sair encerra a partida; o menu mostra o recorde e recomeça da fase 1.
-  await page.getByRole('button', { name: 'Menu principal' }).click();
-  await expect(page.getByTestId('expert')).toContainText('Recorde: fase 1');
-  await page.getByTestId('expert').click();
-  await waitForBoard(page, 1);
+  // Passar de fase não renova as lâmpadas; a barra da fase nova vem cheia.
+  await page.getByTestId('next').click();
+  await page.getByRole('button', { name: 'Começar fase 2' }).click();
+  await waitForBoard(page, 2);
+  await expect(lit).toHaveCount(2);
+  await expect(energy).toHaveAttribute('aria-valuenow', '2');
+  expect(await saved()).toMatchObject({ lives: 2, completed: [1] });
 });
 
 test('tocar numa porta mostra a tabela verdade com a linha atual', async ({ page }) => {
-  await seedProgress(page, [1, 2], ['AND', 'OR']);
-  await page.goto('/');
-  await page.getByRole('button', { name: 'Fases' }).click();
-  await page.locator('[data-level="3"]').click();
-  await waitForBoard(page, 3);
-  // Fase 3: AND(OR(a, b), c) com a=0, b=0, c=1. O OR (g1) recebe 0 e 0.
-  await tap(page, 'g1');
+  await page.goto('/?level=7');
+  await waitForBoard(page, 7);
+  // Fase 7: AND(AND(a, b), OR(c, d)) com c=0, d=0. O OR (g2) recebe 0 e 0.
+  await tap(page, 'g2');
   const popover = page.locator('.popover');
   await expect(popover).toBeVisible();
   await expect(popover.locator('strong')).toHaveText('OR');
   await expect(popover.locator('tr.current td')).toHaveText(['0', '0', '0']);
-  await tap(page, 'a');
+  await tap(page, 'c');
   // A linha muda quando a energia chega à porta.
   await expect(popover.locator('tr.current td')).toHaveText(['1', '0', '1'], { timeout: 3000 });
   await page.keyboard.press('Escape');
   await expect(popover).toHaveCount(0);
 });
 
-test('fases bloqueadas não abrem e o glossário mostra só portas vistas', async ({ page }) => {
+test('fases bloqueadas não abrem, mostram a dificuldade e o glossário mostra só portas vistas', async ({ page }) => {
   await seedProgress(page, [1], ['AND']);
   await page.goto('/');
   await page.getByRole('button', { name: 'Fases' }).click();
   await expect(page.locator('[data-level="2"]')).toBeEnabled();
   await expect(page.locator('[data-level="3"]')).toBeDisabled();
-  await expect(page.locator('[data-level="36"]')).toBeDisabled();
+  await expect(page.locator('[data-level="51"]')).toBeDisabled();
+  await expect(page.locator('[data-level="3"]')).toHaveAttribute('data-difficulty', 'medium');
+  await expect(page.locator('[data-level="6"]')).toHaveAttribute('aria-label', 'Fase 6 bloqueada, Difícil');
+  await expect(page.locator('[data-level="4"]')).toHaveAttribute('aria-label', 'Fase 4 bloqueada, Fácil. Nova porta: NOT');
   await page.getByRole('button', { name: 'Voltar' }).click();
   await page.getByRole('button', { name: 'Glossário' }).click();
   await expect(page.locator('[data-gate="AND"]')).toBeEnabled();
@@ -280,60 +358,14 @@ test('fases bloqueadas não abrem e o glossário mostra só portas vistas', asyn
   await expect(page.locator('.intro-screen .chip').first()).toHaveText('A · B');
 });
 
-test('todas as 36 fases podem ser vencidas pela solução do solver', async ({ page }) => {
-  test.setTimeout(240_000);
-  for (let level = 1; level <= 36; level++) {
-    await page.goto(`/?level=${level}`);
-    await waitForBoard(page, level);
-    expect((await state(page))!.lampOn, `fase ${level} começa apagada`).toBe(false);
-    await solve(page, level);
-    await expect.poll(async () => (await state(page))!.won, { timeout: 8000, message: `fase ${level}` }).toBe(true);
-  }
-});
-
-/** Monta a solução do solver tocando na peça e depois no encaixe. */
-async function assemble(page: Page, level: number): Promise<void> {
-  const fill = await page.evaluate((id) => window.__game.ultimateSolution(id), level);
-  for (const [slot, piece] of Object.entries(fill!)) {
-    // Com estoque sobrando a peça continua escolhida depois de encaixar; tocar de novo a desmarcaria.
-    const btn = page.getByTestId(`piece-${piece}`);
-    if ((await btn.getAttribute('aria-pressed')) !== 'true') await btn.click();
-    await tap(page, slot);
-  }
-  await expect.poll(async () => (await state(page))!.slots).toEqual(fill);
-}
-
-test('modo Ultimate bloqueado explica como liberar', async ({ page }) => {
-  await seedProgress(page, ALL_BUT_LAST, ALL_GATES, { expertBest: 3 });
+test('fase difícil: arrastar a peça até o encaixe, com energia visível', async ({ page }) => {
+  await seedProgress(page, upTo(5), ['AND', 'OR', 'NOT']);
   await page.goto('/');
-  const ultimate = page.getByTestId('ultimate');
-  await expect(ultimate).toHaveAttribute('aria-disabled', 'true');
-  await expect(ultimate).toContainText('Vença a fase 10 do Expert');
-  await ultimate.click({ force: true });
-  await expect(page.getByTestId('menu-notice')).toContainText('vence a fase 10 do Modo Expert');
-  await expect(ultimate).toBeVisible();
-});
-
-test('vencer a fase 10 do Expert libera o Ultimate', async ({ page }) => {
-  await seedProgress(page, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10], ALL_GATES, { expertBest: 9 });
-  await page.goto('/');
-  await page.waitForFunction(() => window.__game !== undefined);
-  await page.evaluate(() => window.__game.app.startExpert(10));
-  await waitForBoard(page, 10);
-  await solve(page, 10);
-  await page.getByTestId('activate').click();
-  await expect(page.getByTestId('ultimate-unlocked')).toContainText('Modo Ultimate liberado!', { timeout: 8000 });
-  await page.getByRole('button', { name: 'Menu principal' }).click();
-  await expect(page.getByTestId('ultimate')).not.toHaveAttribute('aria-disabled', 'true');
-  await expect(page.getByTestId('ultimate')).toContainText('Monte o circuito com as peças');
-});
-
-test('Ultimate: arrastar a peça até o encaixe, com energia visível', async ({ page }) => {
-  await seedProgress(page, [], ALL_GATES, { expertBest: 10 });
-  await page.goto('/');
-  await page.getByTestId('ultimate').click();
-  await waitForBoard(page, 1);
-  await expect(page.getByTestId('level-title')).toHaveText('UltimateFase 1');
+  await page.getByTestId('play').click();
+  await waitForBoard(page, 6);
+  await expect(page.getByTestId('level-title')).toHaveText('Fase 6');
+  await expect(page.getByTestId('difficulty')).toHaveText('Difícil');
+  await expect(page.locator('.hud-tip')).toContainText('encaixe');
   // Chaves fixas: tocar nelas não muda nada.
   const before = (await state(page))!.inputs;
   await tap(page, 'a');
@@ -353,21 +385,36 @@ test('Ultimate: arrastar a peça até o encaixe, com energia visível', async ({
   await tap(page, 'g1');
   await expect.poll(async () => (await state(page))!.slots).toEqual({ g1: null });
 
-  await assemble(page, 1);
+  // Sem "Ativar", a barra de energia gasta a cada peça encaixada: 1 encaixe → 2 jogadas.
+  // Devolver a peça à bandeja não gasta; a segunda peça errada zera a barra e estoura uma lâmpada.
+  const energy = page.getByTestId('energy');
+  const lit = page.locator('.life:not(.burnt)');
+  await expect(energy).toHaveAttribute('aria-valuenow', '1');
+  await page.getByTestId('piece-AND').click();
+  await tap(page, 'g1');
+  await expect(lit).toHaveCount(2);
+  await expect(energy).toHaveAttribute('aria-valuenow', '2');
+  await tap(page, 'g1');
+  await expect.poll(async () => (await state(page))!.slots).toEqual({ g1: null });
+
+  await assemble(page, 6);
   await expect.poll(async () => (await state(page))!.won, { timeout: 5000 }).toBe(true);
-  await expect(page.getByTestId('win-text')).toHaveText('Você montou o circuito da fase 1.');
+  await expect(page.getByTestId('win-text')).toHaveText('Você montou o circuito da fase 6.');
+  await expect(lit).toHaveCount(2);
   const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('portas-logicas:progress')!));
-  expect(saved.ultimateCompleted).toEqual([1]);
+  expect(saved.completed).toEqual(upTo(6));
   await page.getByTestId('next').click();
-  await waitForBoard(page, 2);
+  await waitForBoard(page, 7);
+  await expect(page.getByTestId('difficulty')).toHaveText('Fácil');
 });
 
-test('Ultimate: chave automática, erro queima vida e acerto vence', async ({ page }) => {
-  await seedProgress(page, [], ALL_GATES, { expertBest: 10, ultimateCompleted: [1, 2, 3, 4, 5, 6] });
+test('fase difícil: chave automática, erro queima vida e acerto vence', async ({ page }) => {
+  await seedProgress(page, upTo(21), ALL_GATES);
   await page.goto('/');
-  await page.getByTestId('ultimate').click();
-  // Fase 7: OR(a, NOT a) com a chave a alternando sozinha.
-  await waitForBoard(page, 7);
+  await page.getByTestId('play').click();
+  // Fase 22: OR(a, NOT a) com a chave a alternando sozinha.
+  await waitForBoard(page, 22);
+  await expect(page.getByTestId('difficulty')).toHaveText('Difícil');
   const activate = page.getByTestId('activate');
   await expect(activate).toHaveText('Preencha todos os encaixes');
   await expect(activate).toBeDisabled();
@@ -400,18 +447,80 @@ test('Ultimate: chave automática, erro queima vida e acerto vence', async ({ pa
   expect((await state(page))!.lives).toBe(2);
 });
 
-test('todas as fases do Ultimate podem ser vencidas pela montagem do solver', async ({ page }) => {
+test('bandeja na lateral esquerda não cobre o circuito nem o HUD, em vários tamanhos de tela', async ({ page }) => {
   test.setTimeout(240_000);
   await page.goto('/');
   await page.waitForFunction(() => window.__game !== undefined);
-  const total = await page.evaluate(() => window.__game.ultimateLevels);
-  expect(total).toBeGreaterThan(0);
+  const total = await page.evaluate(() => window.__game.levels);
+  const hard: number[] = [];
+  for (let id = 1; id <= total; id++) if ((await page.evaluate((n) => window.__game.difficulty(n), id)) === 'hard') hard.push(id);
+  expect(hard.length).toBe(15);
+
+  const overlap = (a: DOMRectLike, b: DOMRectLike) => a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height;
+  for (const size of [
+    { width: 412, height: 915 },
+    { width: 360, height: 640 },
+    { width: 1280, height: 720 },
+    { width: 800, height: 600 },
+    // Tablets: iPad Pro 13 em pé e deitado, iPad Air e iPad mini.
+    { width: 1032, height: 1376 },
+    { width: 1376, height: 1032 },
+    { width: 820, height: 1180 },
+    { width: 768, height: 1024 },
+  ]) {
+    await page.setViewportSize(size);
+    for (const level of hard) {
+      const where = `fase ${level} em ${size.width}x${size.height}`;
+      await page.goto(`/?level=${level}`);
+      await waitForBoard(page, level);
+      const tray = (await page.getByTestId('tray').boundingBox())!;
+      expect(tray.x, `${where}: bandeja à esquerda`).toBeLessThan(size.width / 3);
+      expect(tray.x, `${where}: bandeja dentro da tela`).toBeGreaterThanOrEqual(0);
+      expect(tray.y + tray.height, `${where}: bandeja dentro da tela`).toBeLessThanOrEqual(size.height);
+      expect(await page.evaluate(() => window.__game.trayClear()), `${where}: bandeja cobre o circuito`).toBe(true);
+      // Fora da placa, só numa margem larga: numa faixa estreita ela ficaria solta, colada na borda da tela.
+      const boardLeft = await page.evaluate(() => (innerWidth - parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--board-w'))) / 2);
+      if (tray.x + tray.width <= boardLeft) expect(boardLeft, `${where}: margem estreita demais para a bandeja`).toBeGreaterThanOrEqual(2 * tray.width);
+      for (const sel of ['.hud', '[data-testid="difficulty"]', '.lives', '.action-bar', '.hud-tip']) {
+        const other = page.locator(sel);
+        if (!(await other.count())) continue;
+        expect(overlap(tray, (await other.boundingBox())!), `${where}: bandeja cobre ${sel}`).toBe(false);
+      }
+    }
+  }
+});
+
+interface DOMRectLike {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+test('última fase encerra a campanha', async ({ page }) => {
+  await page.goto('/');
+  await page.waitForFunction(() => window.__game !== undefined);
+  const total = await page.evaluate(() => window.__game.levels);
+  await seedProgress(page, upTo(total - 1), ALL_GATES);
+  await page.goto('/');
+  await page.getByTestId('play').click();
+  await waitForBoard(page, total);
+  await win(page, total);
+  await expect(page.getByTestId('win-text')).toHaveText(`Completou todas as ${total} fases.`);
+  await page.getByRole('button', { name: 'Menu principal' }).click();
+  await expect(page.getByTestId('play')).toContainText('Todas concluídas');
+});
+
+test('todas as fases da campanha podem ser vencidas', async ({ page }) => {
+  test.setTimeout(480_000);
+  await page.goto('/');
+  await page.waitForFunction(() => window.__game !== undefined);
+  const total = await page.evaluate(() => window.__game.levels);
+  expect(total).toBe(51);
   for (let level = 1; level <= total; level++) {
-    await page.goto(`/?ultimate=${level}`);
+    await page.goto(`/?level=${level}`);
     await waitForBoard(page, level);
     expect((await state(page))!.lampOn, `fase ${level} começa apagada`).toBe(false);
-    await assemble(page, level);
-    if ((await state(page))!.lives !== null) await page.getByTestId('activate').click();
-    await expect.poll(async () => (await state(page))!.won, { timeout: 10000, message: `fase ${level}` }).toBe(true);
+    await win(page, level);
   }
 });

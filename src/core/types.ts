@@ -35,10 +35,10 @@ export interface LevelDef {
   layout?: LayoutOverrides;
 }
 
-/** Peças disponíveis no modo Ultimate: quantas de cada porta. */
+/** Peças disponíveis no fase de montagem: quantas de cada porta. */
 export type Pieces = Partial<Record<GateType, number>>;
 
-/** Fase do modo Ultimate: as chaves são fixas e o jogador escolhe o tipo das portas marcadas como encaixe. */
+/** Fase das fases de montagem: as chaves são fixas e o jogador escolhe o tipo das portas marcadas como encaixe. */
 export interface UltimateLevelDef extends LevelDef {
   /** Portas que começam vazias; o `type` gravado nelas é a solução de referência. */
   slots: string[];

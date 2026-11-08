@@ -21,7 +21,7 @@ export interface PropagationOptions {
   speed?: number;
   /** Tempo que cada porta leva para reagir a uma mudança na entrada. */
   gateDelay?: number;
-  /** Modo Ultimate: portas que começam como encaixes vazios (não conduzem). */
+  /** Fase de montagem: portas que começam como encaixes vazios (não conduzem). */
   empty?: Iterable<string>;
 }
 
@@ -100,7 +100,7 @@ export class Propagation {
   }
 
   /**
-   * Modo Ultimate: põe uma peça no encaixe (ou esvazia, com null). Com `react`, a porta
+   * Fase de montagem: põe uma peça no encaixe (ou esvazia, com null). Com `react`, a porta
    * recalcula a saída com o que já chegou aos pinos e a mudança corre pelas trilhas.
    */
   setGate(id: string, type: GateType | null, react: boolean): void {

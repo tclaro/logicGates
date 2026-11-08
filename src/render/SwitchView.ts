@@ -88,7 +88,7 @@ export class SwitchView extends Container {
     }
   }
 
-  /** Modo Ultimate: a chave não responde ao toque. */
+  /** Fase de montagem: a chave não responde ao toque. */
   setFixed(): void {
     this.eventMode = 'none';
     this.cursor = 'default';

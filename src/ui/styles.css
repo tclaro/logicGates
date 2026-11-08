@@ -195,6 +195,19 @@ h1, h2 { margin: 0; }
 .level-tile.done .level-icon { color: var(--accent); }
 .level-tile.current { border-color: var(--warm); box-shadow: 0 0 18px rgba(255, 215, 96, 0.35); }
 .level-tile.locked { opacity: 0.45; cursor: not-allowed; }
+.level-diff {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--diff);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--diff) 70%, transparent);
+}
+.difficulty-legend { display: flex; justify-content: center; gap: 16px; margin: 0 0 12px; font-size: 0.85rem; color: var(--muted); }
+.difficulty-legend > span { display: inline-flex; align-items: center; gap: 6px; }
+.difficulty-legend .level-diff { position: static; }
 .level-gate {
   position: absolute;
   bottom: 4px;
@@ -362,7 +375,6 @@ h1, h2 { margin: 0; }
   border-bottom: 1px solid var(--line);
 }
 .hud-title { font-size: 1.15rem; letter-spacing: 0.08em; text-transform: uppercase; text-align: center; white-space: nowrap; line-height: 1.1; }
-.hud-mode { display: block; font-size: 0.62rem; letter-spacing: 0.24em; color: var(--warm); }
 .hud-group { display: flex; gap: 8px; }
 .icon-btn.active { background: rgba(143, 244, 255, 0.16); border-color: rgba(143, 244, 255, 0.45); }
 .audio-panel {
@@ -383,6 +395,7 @@ h1, h2 { margin: 0; }
 }
 .audio-panel[hidden] { display: none; }
 .audio-panel .toggle { justify-content: flex-start; }
+/* Posição natural da dica; GameScreen a desce quando ela cobriria o rótulo da dificuldade ou as vidas. */
 .hud-tip {
   position: absolute;
   top: calc(66px + var(--safe-top));
@@ -448,90 +461,31 @@ h1, h2 { margin: 0; }
 .victory-card p { margin: 6px 0 16px; color: var(--muted); }
 .victory-actions { display: grid; gap: 10px; }
 
-/* Faixa diagonal de modo Expert liberado, sobre a placa e atrás do cartão de vitória. */
-.victory-card { position: relative; z-index: 1; }
-.unlock-ribbon-wrap {
-  position: absolute;
-  inset: 0 auto 0 50%;
-  width: min(100%, var(--hud-w, 100%));
-  transform: translateX(-50%);
-  overflow: hidden;
-  pointer-events: none;
-  container-type: inline-size;
-}
-.unlock-ribbon {
-  position: absolute;
-  top: 26%;
-  left: -30%;
-  width: 160%;
-  display: grid;
-  justify-items: center;
-  gap: 2px;
-  padding: 14px 0 12px;
-  color: #1a1300;
-  text-align: center;
-  background:
-    repeating-linear-gradient(-45deg, #1a1300 0 10px, var(--warm) 10px 20px) top / 100% 7px no-repeat,
-    repeating-linear-gradient(-45deg, #1a1300 0 10px, var(--warm) 10px 20px) bottom / 100% 7px no-repeat,
-    linear-gradient(180deg, #ffe58a, var(--warm) 55%, #f2b632);
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.55), 0 0 50px rgba(255, 215, 96, 0.45);
-  transform: rotate(-10deg);
-  animation: ribbon-in 0.7s 0.15s cubic-bezier(0.2, 1.3, 0.4, 1) both, ribbon-pulse 1.4s 1s ease-in-out infinite;
-}
-.unlock-ribbon::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(100deg, transparent 40%, rgba(255, 255, 255, 0.7) 50%, transparent 60%);
-  transform: translateX(-100%);
-  animation: unlock-sweep 2.4s 0.9s ease-in-out infinite;
-}
-.unlock-ribbon strong {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-size: clamp(1rem, 5.4cqi, 2rem);
-  font-weight: 900;
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
-}
-.unlock-ribbon strong svg { width: 1em; height: 1em; }
-.unlock-ribbon small { font-size: clamp(0.75rem, 3.6cqi, 1rem); font-weight: 700; }
-@keyframes ribbon-in {
-  from { opacity: 0; transform: rotate(-10deg) translateX(-110%) scale(1.4); }
-  to { opacity: 1; transform: rotate(-10deg); }
-}
-@keyframes ribbon-pulse { 50% { box-shadow: 0 10px 30px rgba(0, 0, 0, 0.55), 0 0 80px rgba(255, 215, 96, 0.8); } }
-@keyframes unlock-sweep { 60%, 100% { transform: translateX(100%); } }
-@media (prefers-reduced-motion: reduce) {
-  .unlock-ribbon, .unlock-ribbon::after { animation: none; }
-}
-
-/* ---------- Modo Expert ---------- */
+/* ---------- Energia escondida ---------- */
 .btn:disabled { opacity: 0.45; cursor: not-allowed; transform: none; box-shadow: none; }
-.expert-btn { justify-content: flex-start; text-align: left; border-color: rgba(255, 215, 96, 0.45); }
-.expert-btn:not(:disabled):not(.locked):hover { border-color: rgba(255, 215, 96, 0.8); background: rgba(255, 215, 96, 0.08); }
-/* Modo bloqueado: parece desligado, mas o toque explica como liberar. */
-.btn.locked { opacity: 0.45; cursor: help; box-shadow: none; }
-.btn.locked:active { transform: none; }
-.ultimate-btn { border-color: rgba(199, 155, 255, 0.5); }
-.ultimate-btn:not(.locked):hover { border-color: rgba(199, 155, 255, 0.85); background: rgba(199, 155, 255, 0.08); }
-.ultimate-btn .expert-icon { color: var(--violet); }
-.menu-notice {
-  margin: 0;
-  padding: 10px 14px;
-  border-radius: 12px;
-  background: rgba(4, 20, 15, 0.85);
-  border: 1px solid rgba(255, 215, 96, 0.4);
-  color: var(--warm);
-  font-size: 0.92rem;
-  line-height: 1.35;
-  animation: pop-in 0.18s ease-out;
+
+/* Dificuldade: cor de cada nível, no rótulo da fase e na tela de seleção. */
+.diff-easy { --diff: #5fe39a; }
+.diff-medium { --diff: var(--warm); }
+.diff-hard { --diff: var(--violet); }
+
+/* Rótulo da dificuldade: canto superior esquerdo da placa, espelhando as vidas. */
+.difficulty-label {
+  position: absolute;
+  z-index: 5;
+  top: calc(max(var(--board-top, 0px), 58px + var(--safe-top)) + 10px);
+  left: calc(max(0px, (100% - var(--board-w, 100%)) / 2) + 10px);
+  padding: 3px 9px;
+  border-radius: 8px;
+  background: rgba(3, 14, 10, 0.82);
+  border: 1px solid color-mix(in srgb, var(--diff) 55%, transparent);
+  color: var(--diff);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  pointer-events: none !important;
 }
-.menu-notice[hidden] { display: none; }
-.expert-icon { display: grid; color: var(--warm); }
-.expert-text { display: grid; line-height: 1.2; }
-.expert-text small { font-size: 0.8rem; font-weight: 500; color: var(--muted); }
 
 /* Vidas: moldura no canto superior direito da placa. */
 .lives {
@@ -539,8 +493,8 @@ h1, h2 { margin: 0; }
   z-index: 5;
   top: calc(max(var(--board-top, 0px), 58px + var(--safe-top)) + 10px);
   right: calc(max(0px, (100% - var(--board-w, 100%)) / 2) + 10px);
-  display: flex;
-  gap: 4px;
+  display: grid;
+  gap: 5px;
   padding: 6px 8px;
   border-radius: 12px;
   background: rgba(3, 14, 10, 0.82);
@@ -548,7 +502,15 @@ h1, h2 { margin: 0; }
   box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.4), 0 4px 14px rgba(0, 0, 0, 0.45);
   pointer-events: none !important;
 }
+.life-row { display: flex; gap: 4px; }
 .life { display: grid; width: 22px; height: 30px; }
+/* Fase fácil: barra de energia sob as vidas, gasta a cada toque numa chave. */
+.energy { height: 6px; border-radius: 3px; background: rgba(255, 255, 255, 0.1); overflow: hidden; }
+.energy-fill { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--accent), var(--accent-2)); box-shadow: 0 0 6px rgba(24, 216, 255, 0.7); transition: width 0.25s ease-out; }
+.energy.low .energy-fill { background: linear-gradient(90deg, #ff6b3d, var(--warm)); box-shadow: 0 0 6px rgba(255, 120, 60, 0.8); }
+.energy.refill .energy-fill { animation: energy-refill 0.6s ease-out; }
+@keyframes energy-refill { from { width: 0; filter: brightness(2); } }
+@media (prefers-reduced-motion: reduce) { .energy-fill { transition: none; } .energy.refill .energy-fill { animation: none; } }
 .life svg { width: 100%; height: 100%; overflow: visible; }
 .life .glass { fill: var(--warm); stroke: #fff3c4; stroke-width: 1; filter: drop-shadow(0 0 4px rgba(255, 215, 96, 0.9)); }
 .life .filament { fill: none; stroke: #b35c00; stroke-width: 1.3; stroke-linecap: round; stroke-linejoin: round; }
@@ -600,25 +562,36 @@ h1, h2 { margin: 0; }
   *, *::before { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition: none !important; }
 }
 
-/* ---------- Modo Ultimate ---------- */
-.action-bar.ultimate-bar {
-  height: calc(92px + var(--safe-bottom));
-  grid-template-rows: 84px;
-  align-content: center;
+/* ---------- Fases difíceis: bandeja de peças ---------- */
+/* Coluna na lateral esquerda; GameScreen escolhe a altura em que ela não cobre o circuito. */
+.tray {
+  position: absolute;
+  z-index: 5;
+  top: calc(58px + var(--safe-top) + 48px);
+  left: 8px;
+  display: grid;
+  grid-auto-rows: 66px;
+  grid-template-columns: 58px;
   gap: 6px;
+  padding: 6px;
+  border-radius: 14px;
+  background: rgba(3, 14, 10, 0.82);
+  border: 1px solid rgba(199, 155, 255, 0.35);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.4), 0 4px 14px rgba(0, 0, 0, 0.45);
 }
-.action-bar.ultimate-bar.with-activate { height: calc(156px + var(--safe-bottom)); grid-template-rows: 84px 52px; }
-.tray { display: flex; gap: 6px; justify-content: safe center; width: 100%; height: 84px; align-items: center; overflow-x: auto; overflow-y: hidden; }
-/* Com as vidas no canto, a dica desce para não cobri-las. */
-.hud-tip.below-lives { top: calc(116px + var(--safe-top)); }
+.tray.two-cols { grid-template-columns: 58px 58px; }
+/* Telas baixas: peças menores para a bandeja caber sem cobrir o circuito. */
+.tray.compact { grid-auto-rows: 52px; grid-template-columns: 46px; gap: 4px; padding: 4px; }
+.tray.compact.two-cols { grid-template-columns: 46px 46px; }
+.tray.compact .piece { width: 46px; height: 52px; border-radius: 11px; }
+.tray.compact .piece .piece-svg { width: 30px; height: 40px; }
+.tray.compact .piece-count { font-size: 0.68rem; right: 2px; bottom: 0; }
 .piece {
   position: relative;
-  /* Encolhe para caber até 7 peças numa tela de celular. */
-  flex: 0 1 64px;
-  min-width: 44px;
   display: grid;
   place-items: center;
-  height: 78px;
+  width: 58px;
+  height: 66px;
   padding: 0;
   border-radius: 14px;
   border: 2px solid var(--line);
@@ -630,7 +603,7 @@ h1, h2 { margin: 0; }
 .piece:hover:not(:disabled) { border-color: rgba(199, 155, 255, 0.6); }
 .piece.selected { border-color: var(--violet); background: rgba(199, 155, 255, 0.14); box-shadow: 0 0 18px rgba(199, 155, 255, 0.45); }
 .piece:disabled { opacity: 0.3; cursor: default; }
-.piece .piece-svg { width: min(42px, 80%); height: 56px; pointer-events: none; }
+.piece .piece-svg { width: 38px; height: 50px; pointer-events: none; }
 .piece-svg { overflow: visible; }
 .piece-count {
   position: absolute;
@@ -647,7 +620,7 @@ h1, h2 { margin: 0; }
   position: absolute;
   z-index: 6;
   left: 50%;
-  bottom: calc(100px + var(--safe-bottom));
+  bottom: calc(14px + var(--safe-bottom));
   transform: translateX(-50%);
   width: min(92%, 420px);
   margin: 0;
@@ -660,5 +633,6 @@ h1, h2 { margin: 0; }
   text-align: center;
   pointer-events: none !important;
 }
-.ultimate-bar.with-activate ~ .ultimate-notice, .ultimate-notice:has(~ .ultimate-bar.with-activate) { bottom: calc(164px + var(--safe-bottom)); }
+/* Com o botão Ativar embaixo, o aviso sobe para ficar acima dele. */
+.game-screen:has(.action-bar) .ultimate-notice { bottom: calc(76px + var(--safe-bottom)); }
 .ultimate-notice[hidden] { display: none; }

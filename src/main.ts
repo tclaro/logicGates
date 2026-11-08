@@ -1,8 +1,9 @@
 import './ui/styles.css';
 import { audio } from './audio/AudioManager';
 import { solve } from './core/solver';
+import type { UltimateLevelDef } from './core/types';
 import { solveUltimate } from './core/ultimate';
-import { getLevel, getUltimateLevel, ULTIMATE_LEVELS } from './levels';
+import { CAMPAIGN, getCampaignLevel } from './levels';
 import { Stage } from './render/Stage';
 import { App } from './ui/App';
 
@@ -11,12 +12,10 @@ await stage.init(document.getElementById('stage')!);
 const app = new App(stage, document.getElementById('ui')!);
 void audio.load();
 
-// Em desenvolvimento, ?level=N abre direto uma fase.
+// Em desenvolvimento, ?level=N abre direto uma fase da campanha.
 const params = new URLSearchParams(location.search);
 const direct = Number(params.get('level'));
-const directUltimate = Number(params.get('ultimate'));
-if (import.meta.env.DEV && direct && getLevel(direct)) app.playLevel(direct);
-else if (import.meta.env.DEV && directUltimate && getUltimateLevel(directUltimate)) app.playUltimate(directUltimate);
+if (import.meta.env.DEV && direct && getCampaignLevel(direct)) app.playLevel(direct);
 else app.showMenu();
 
 if (import.meta.env.DEV) {
@@ -26,23 +25,31 @@ if (import.meta.env.DEV) {
       app,
       stage,
       audio,
+      levels: CAMPAIGN.length,
+      difficulty(levelId: number) {
+        return getCampaignLevel(levelId)?.difficulty ?? null;
+      },
       /** Ponto de tela (clientX/clientY) do centro de uma chave ou porta. */
       pointOf(id: string) {
         const p = stage.board?.anchorOf(id);
         return p ? stage.toClient(p) : null;
       },
+      /** Fases fácil e média: os valores das chaves (em ordem de id) que acendem a lâmpada. */
       solution(levelId: number) {
-        return solve(getLevel(levelId)!).best;
+        return solve(getCampaignLevel(levelId)!.def).best;
       },
-      ultimateLevels: ULTIMATE_LEVELS.length,
-      /** Uma montagem que resolve a fase do Ultimate: peça por encaixe. */
+      /** Fase difícil: uma montagem que resolve a fase, peça por encaixe. */
       ultimateSolution(levelId: number) {
-        return solveUltimate(getUltimateLevel(levelId)!)[0] ?? null;
+        return solveUltimate(getCampaignLevel(levelId)!.def as UltimateLevelDef)[0] ?? null;
+      },
+      /** Fase difícil: a bandeja de peças não cobre nenhum elemento do circuito. */
+      trayClear() {
+        return app.game?.trayIsClear() ?? true;
       },
       state() {
         const board = stage.board;
         return board
-          ? { level: board.level.id, inputs: board.inputState, lampOn: board.lampOn, animating: board.animating, won: app.game?.won ?? false, lives: app.game?.usesLives ? app.game.lives : null, slots: board.slotFill }
+          ? { level: board.level.id, inputs: board.inputState, lampOn: board.lampOn, animating: board.animating, won: app.game?.won ?? false, lives: app.game?.lives ?? null, energy: app.game?.energyLeft ?? null, slots: board.slotFill }
           : null;
       },
     },

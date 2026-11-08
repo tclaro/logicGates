@@ -42,7 +42,7 @@ export function initialInputs(level: LevelDef): InputState {
 
 /**
  * Valor lógico de todos os nós (chaves e portas) para um estado das chaves.
- * Portas em `empty` são encaixes vazios do modo Ultimate: não conduzem, saem 0.
+ * Portas em `empty` são encaixes vazios das fases de montagem: não conduzem, saem 0.
  */
 export function evaluate(level: LevelDef, inputs: InputState, order = topoOrder(level), empty?: ReadonlySet<string>): NodeValues {
   const values: NodeValues = {};

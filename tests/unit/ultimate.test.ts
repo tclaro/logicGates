@@ -14,15 +14,6 @@ import {
 import { newPiecesIn, ULTIMATE_LEVELS } from '../../src/levels';
 import { layoutLevel } from '../../src/layout/autoLayout';
 import { Propagation } from '../../src/render/Propagation';
-import {
-  defaultProgress,
-  highestUltimateUnlocked,
-  isUltimateUnlocked,
-  loadProgress,
-  markUltimateCompleted,
-  recordExpert,
-  ULTIMATE_UNLOCK_LEVEL,
-} from '../../src/storage/progress';
 import { checkLayout } from './layoutChecks';
 
 /** OR(a, NOT a) com a chave `a` alternando: só acende sempre com NOT + OR. */
@@ -129,24 +120,5 @@ describe('modo Ultimate: fases', () => {
         ).toBe(true);
       }
     }
-  });
-});
-
-describe('modo Ultimate: progresso', () => {
-  it(`libera ao vencer a fase ${ULTIMATE_UNLOCK_LEVEL} do Expert e libera as fases em ordem`, () => {
-    let p = defaultProgress();
-    expect(p.ultimateCompleted).toEqual([]);
-    p = recordExpert(p, ULTIMATE_UNLOCK_LEVEL - 1);
-    expect(isUltimateUnlocked(p)).toBe(false);
-    p = recordExpert(p, ULTIMATE_UNLOCK_LEVEL);
-    expect(isUltimateUnlocked(p)).toBe(true);
-    expect(highestUltimateUnlocked(p, 15)).toBe(1);
-    p = markUltimateCompleted(markUltimateCompleted(p, 2), 1);
-    expect(p.ultimateCompleted).toEqual([1, 2]);
-    expect(markUltimateCompleted(p, 1)).toBe(p);
-    expect(highestUltimateUnlocked(p, 15)).toBe(3);
-    expect(highestUltimateUnlocked(p, 2)).toBe(2);
-    const old = JSON.stringify({ version: 1, completed: [], seenIntros: [], sound: true, music: false, expertBest: 3 });
-    expect(loadProgress({ getItem: () => old }).ultimateCompleted).toEqual([]);
   });
 });

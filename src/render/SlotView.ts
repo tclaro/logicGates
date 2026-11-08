@@ -26,7 +26,7 @@ function dashedBox(g: Graphics): void {
   dashedLine(g, left, bottom, left, top);
 }
 
-/** Encaixe do modo Ultimate: contorno tracejado com os pinos, onde o jogador põe uma peça. */
+/** Encaixe das fases de montagem: contorno tracejado com os pinos, onde o jogador põe uma peça. */
 export class SlotView extends Container {
   private readonly frame = new Graphics();
   private readonly hint = new Graphics();
